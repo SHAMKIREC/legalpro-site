@@ -1,0 +1,1451 @@
+<!DOCTYPE html>
+<html lang="ru" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>LegalPro — Профессиональный генератор досудебных претензий</title>
+    <meta name="description" content="Генератор юридически безупречных досудебных претензий. Автоподбор статей закона, расчет компенсаций, поддержка коллективных претензий.">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; background: #0a0a0f; color: #e2e8f0; overflow-x: hidden; }
+        .font-display { font-family: 'Space Grotesk', sans-serif; }
+        .glass { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(20px); border: 1px solid rgba(255, 255, 255, 0.08); }
+        .glass-strong { background: rgba(10, 10, 15, 0.95); backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255, 255, 255, 0.05); }
+        .text-gradient { background: linear-gradient(135deg, #38bdf8 0%, #818cf8 50%, #c084fc 100%); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .text-gradient-gold { background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .btn-primary { background: linear-gradient(135deg, #0ea5e9 0%, #8b5cf6 100%); transition: all 0.3s ease; }
+        .btn-primary:hover { transform: scale(1.02); box-shadow: 0 0 30px rgba(14, 165, 233, 0.4); }
+        .btn-gold { background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%); transition: all 0.3s ease; }
+        .btn-gold:hover { transform: scale(1.02); box-shadow: 0 0 30px rgba(251, 191, 36, 0.4); }
+        .input-field { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); transition: all 0.3s ease; }
+        .input-field:focus { border-color: #0ea5e9; box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1); outline: none; }
+        .section-hidden { display: none !important; }
+        .pro-badge { background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%); color: #0a0a0f; font-size: 0.65rem; font-weight: 700; padding: 0.25rem 0.5rem; border-radius: 0.25rem; text-transform: uppercase; }
+        .toast { position: fixed; top: 20px; right: 20px; padding: 16px 24px; border-radius: 12px; color: white; font-weight: 500; z-index: 9999; transform: translateX(400px); transition: transform 0.3s ease; max-width: 350px; }
+        .toast.show { transform: translateX(0); }
+        .toast-success { background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
+        .toast-error { background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%); }
+        .toast-warning { background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%); color: #0a0a0f; }
+        .worker-card { background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 16px; margin-bottom: 12px; position: relative; }
+        .worker-card.active { border-color: #0ea5e9; background: rgba(14, 165, 233, 0.05); }
+        .remove-worker { position: absolute; top: 8px; right: 8px; color: #f43f5e; cursor: pointer; padding: 4px; }
+        .step-active { background: linear-gradient(135deg, #0ea5e9 0%, #8b5cf6 100%); color: white; }
+        .step-completed { background: rgba(16, 185, 129, 0.2); color: #10b981; border-color: #10b981; }
+        .category-card { transition: all 0.3s ease; cursor: pointer; }
+        .category-card:hover { transform: translateY(-4px); border-color: rgba(14, 165, 233, 0.5); }
+        .category-card.selected { border-color: #0ea5e9; background: rgba(14, 165, 233, 0.1); }
+        .progress-bar { background: linear-gradient(90deg, #0ea5e9 0%, #8b5cf6 100%); transition: width 0.5s ease; }
+        .telegram-login { background: #0088cc; color: white; }
+        .telegram-login:hover { background: #0099dd; }
+        /* guide cards */
+        .guide-step { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 16px; display: flex; gap: 12px; align-items: flex-start; }
+        .guide-step + .guide-step { margin-top: 1rem; }
+        .guide-step .step-number { flex-shrink: 0; width: 32px; height: 32px; background: #6366f1; border-radius: 50%; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; }
+        /* modal styles */
+        .modal-backdrop { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 1000; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
+        .modal-backdrop.hidden { display: none; }
+        .modal-content { background: rgba(10,10,15,0.95); border: 1px solid rgba(255,255,255,0.02); border-radius: 16px; padding: 32px; max-width: 520px; width: 90%; max-height: 85vh; overflow-y: auto; position: relative; animation: modalSlideIn 0.3s ease-out; }
+        .modal-content::-webkit-scrollbar { width: 4px; }
+        .modal-content::-webkit-scrollbar-track { background: transparent; }
+        .modal-content::-webkit-scrollbar-thumb { background: rgba(251,191,36,0.15); border-radius: 2px; }
+        .modal-content::-webkit-scrollbar-thumb:hover { background: rgba(251,191,36,0.3); }
+        @keyframes modalSlideIn { from { transform: scale(0.95); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .modal-close { position: absolute; top: 16px; right: 16px; background: none; border: none; color: #999; cursor: pointer; font-size: 24px; }
+    </style>
+</head>
+<body class="antialiased">
+
+    <!-- API Configuration -->
+    <script>
+        const API_BASE = 'https://legalpro-backend-production.up.railway.app';
+            ? 'http://localhost:5555' 
+            : 'https://api.legalpro.ru';
+        
+        let currentUser = null;
+        let authToken = localStorage.getItem('legalpro_token') || null;
+        let currentStep = 1;
+        let claimData = {
+            type: '',
+            mode: 'individual',
+            workers: [],
+            employer: {},
+            circumstances: {},
+            evidence: [],
+            witness: null
+        };
+
+        if (authToken) {
+    fetch(`${API_BASE}/api/auth/validate`, {
+        method: 'GET',
+        headers: {
+            'Authorization': `Bearer ${authToken}`
+        }
+    })
+    .then(res => {
+        if (!res.ok) throw new Error('Invalid token');
+        return res.json();
+    })
+    .then(data => {
+        if (data && data.user) {
+            currentUser = data.user;
+            updateUIForUser();
+        } else {
+            localStorage.removeItem('legalpro_token');
+            authToken = null;
+        }
+    })
+    .catch(() => {
+        localStorage.removeItem('legalpro_token');
+        authToken = null;
+    });
+}
+    </script>
+
+    <!-- Navigation -->
+    <nav class="fixed top-0 left-0 w-full z-50 glass-strong">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center gap-3 cursor-pointer" onclick="showSection('home')">
+                    <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg">
+                        <i class="fa-solid fa-scale-balanced"></i>
+                    </div>
+                    <span class="font-display font-bold text-xl text-white tracking-tight">Legal<span class="text-cyan-400">Pro</span></span>
+                    <span id="pro-indicator" class="pro-badge hidden">PRO</span>
+                </div>
+                
+                <div class="hidden md:flex items-center space-x-6">
+                    <button onclick="showSection('generator')" class="text-gray-300 hover:text-white font-medium transition-colors text-sm">Генератор</button>
+                    <button onclick="showSection('pricing')" class="text-gray-300 hover:text-white font-medium transition-colors text-sm">Тарифы</button>
+                    <button onclick="showSection('guide')" class="text-gray-300 hover:text-white font-medium transition-colors text-sm">Инструкция</button>
+                    <div id="user-menu" class="hidden flex items-center gap-3">
+                        <span id="user-name" class="text-gray-300 text-sm"></span>
+                        <button onclick="logout()" class="text-gray-400 hover:text-white text-sm">Выйти</button>
+                    </div>
+                    <button onclick="toggleProModal()" class="text-amber-400 hover:text-amber-300 font-medium transition-colors text-sm">
+                        <i class="fa-solid fa-crown mr-1"></i>PRO
+                    </button>
+                    <button id="login-btn" onclick="initTelegramAuth()" class="telegram-login px-4 py-2 rounded-lg text-sm font-medium">
+                        <i class="fa-brands fa-telegram mr-2"></i>Регистрация
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+
+    <!-- HOME SECTION -->
+    <section id="home" class="min-h-screen pt-24 pb-12">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center max-w-3xl mx-auto mb-16">
+                <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full glass text-cyan-300 text-xs font-semibold tracking-wider uppercase border border-cyan-500/20 mb-8">
+                    <span class="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></span>
+                    Юридическая точность 24/7
+                </div>
+                
+                <h1 class="font-display text-5xl lg:text-6xl font-bold leading-tight text-white mb-6">
+                    Профессиональный генератор <br>
+                    <span class="text-gradient">досудебных претензий</span>
+                </h1>
+                
+                <p class="text-xl text-gray-400 leading-relaxed mb-8">
+                    Создайте юридически безупречную претензию за 5 минут. 
+                    Автоподбор статей закона, расчет компенсаций, поддержка коллективных претензий.
+                </p>
+                
+                <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                    <button onclick="startGenerator()" class="btn-primary px-8 py-4 rounded-full font-semibold text-white text-lg">
+                        <i class="fa-solid fa-wand-magic-sparkles mr-2"></i>
+                        Создать претензию
+                    </button>
+                    <button onclick="showSection('pricing')" class="px-8 py-4 glass rounded-full font-semibold text-white hover:bg-white/10 transition-all border border-white/10">
+                        <i class="fa-solid fa-crown mr-2 text-amber-400"></i>
+                        Тарифы
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Categories Grid -->
+            <div class="grid md:grid-cols-2 lg:grid-cols-4 gap-4 max-w-5xl mx-auto">
+                <div class="glass rounded-xl p-6 border border-white/10 text-center">
+                    <div class="w-12 h-12 rounded-lg bg-cyan-500/20 flex items-center justify-center text-cyan-400 text-xl mx-auto mb-4">
+                        <i class="fa-solid fa-briefcase"></i>
+                    </div>
+                    <h3 class="font-semibold text-white mb-1">Трудовые споры</h3>
+                    <p class="text-xs text-gray-400">Невыплата ЗП, неоформление, увольнение</p>
+                </div>
+                
+                <div class="glass rounded-xl p-6 border border-white/10 text-center">
+                    <div class="w-12 h-12 rounded-lg bg-purple-500/20 flex items-center justify-center text-purple-400 text-xl mx-auto mb-4">
+                        <i class="fa-solid fa-cart-shopping"></i>
+                    </div>
+                    <h3 class="font-semibold text-white mb-1">Защита прав потребителей</h3>
+                    <p class="text-xs text-gray-400">Товар, услуги, онлайн-курсы</p>
+                </div>
+                
+                <div class="glass rounded-xl p-6 border border-white/10 text-center">
+                    <div class="w-12 h-12 rounded-lg bg-green-500/20 flex items-center justify-center text-green-400 text-xl mx-auto mb-4">
+                        <i class="fa-solid fa-file-contract"></i>
+                    </div>
+                    <h3 class="font-semibold text-white mb-1">Договорные споры</h3>
+                    <p class="text-xs text-gray-400">Подряд, аренда, займ</p>
+                </div>
+                
+                <div class="glass rounded-xl p-6 border border-white/10 text-center">
+                    <div class="w-12 h-12 rounded-lg bg-amber-500/20 flex items-center justify-center text-amber-400 text-xl mx-auto mb-4">
+                        <i class="fa-solid fa-file-lines"></i>
+                    </div>
+                    <h3 class="font-semibold text-white mb-1">Универсальная</h3>
+                    <p class="text-xs text-gray-400">Любая ситуация</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- GENERATOR SECTION -->
+    <section id="generator" class="section-hidden min-h-screen pt-24 pb-12">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            
+            <!-- Progress -->
+            <div class="mb-8">
+                <div class="flex justify-between mb-2 text-sm text-gray-400">
+                    <span id="step-label">Шаг 1 из 7</span>
+                    <span id="progress-percent">14%</span>
+                </div>
+                <div class="h-2 bg-gray-800 rounded-full overflow-hidden">
+                    <div id="progress-bar" class="progress-bar h-full rounded-full" style="width: 14%"></div>
+                </div>
+            </div>
+            
+            <!-- Steps Indicator -->
+            <div class="flex justify-between mb-8">
+                <div class="step-indicator w-10 h-10 rounded-full border-2 border-cyan-500 step-active flex items-center justify-center text-sm font-bold" data-step="1">1</div>
+                <div class="step-indicator w-10 h-10 rounded-full border-2 border-gray-600 flex items-center justify-center text-sm font-bold text-gray-400" data-step="2">2</div>
+                <div class="step-indicator w-10 h-10 rounded-full border-2 border-gray-600 flex items-center justify-center text-sm font-bold text-gray-400" data-step="3">3</div>
+                <div class="step-indicator w-10 h-10 rounded-full border-2 border-gray-600 flex items-center justify-center text-sm font-bold text-gray-400" data-step="4">4</div>
+                <div class="step-indicator w-10 h-10 rounded-full border-2 border-gray-600 flex items-center justify-center text-sm font-bold text-gray-400" data-step="5">5</div>
+                <div class="step-indicator w-10 h-10 rounded-full border-2 border-gray-600 flex items-center justify-center text-sm font-bold text-gray-400" data-step="6">6</div>
+                <div class="step-indicator w-10 h-10 rounded-full border-2 border-gray-600 flex items-center justify-center text-sm font-bold text-gray-400" data-step="7">7</div>
+            </div>
+            
+            <!-- Step 1: Category Selection -->
+            <div id="step-1" class="step-content">
+                <div class="glass rounded-2xl p-8 border border-white/10">
+                    <h3 class="text-xl font-bold text-white mb-2">Выберите категорию</h3>
+                    <p class="text-gray-400 text-sm mb-6">Мы подберем подходящие статьи закона автоматически</p>
+                    
+                    <div class="grid md:grid-cols-2 gap-4">
+                        <div onclick="selectCategory('salary')" class="category-card glass rounded-xl p-6 border border-white/10" data-category="salary">
+                            <div class="flex items-start gap-4">
+                                <div class="w-12 h-12 rounded-lg bg-cyan-500/20 flex items-center justify-center text-cyan-400 text-xl flex-shrink-0">
+                                    <i class="fa-solid fa-money-bill-wave"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-white mb-1">Невыплата зарплаты</h4>
+                                    <p class="text-xs text-gray-400">Невыплата заработной платы, задержки, частичные выплаты.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div onclick="selectCategory('unofficial')" class="category-card glass rounded-xl p-6 border border-white/10" data-category="unofficial">
+                            <div class="flex items-start gap-4">
+                                <div class="w-12 h-12 rounded-lg bg-rose-500/20 flex items-center justify-center text-rose-400 text-xl flex-shrink-0">
+                                    <i class="fa-solid fa-user-xmark"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-white mb-1">Работа без оформления</h4>
+                                    <p class="text-xs text-gray-400">Фактическая работа без трудового договора и оформления.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div onclick="selectCategory('dismissal')" class="category-card glass rounded-xl p-6 border border-white/10" data-category="dismissal">
+                            <div class="flex items-start gap-4">
+                                <div class="w-12 h-12 rounded-lg bg-purple-500/20 flex items-center justify-center text-purple-400 text-xl flex-shrink-0">
+                                    <i class="fa-solid fa-door-open"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-white mb-1">Расчет при увольнении</h4>
+                                    <p class="text-sm text-gray-400">Отсутствие расчета при увольнении. Ст. 140 ТК РФ.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div onclick="selectCategory('zpp_product')" class="category-card glass rounded-xl p-6 border border-white/10" data-category="zpp_product">
+                            <div class="flex items-start gap-4">
+                                <div class="w-12 h-12 rounded-lg bg-orange-500/20 flex items-center justify-center text-orange-400 text-xl flex-shrink-0">
+                                    <i class="fa-solid fa-box-open"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-white mb-1">Некачественный товар</h4>
+                                    <p class="text-sm text-gray-400">Возврат товара, брак. ЗоЗПП ст. 18-23.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div onclick="selectCategory('zpp_service')" class="category-card glass rounded-xl p-6 border border-white/10" data-category="zpp_service">
+                            <div class="flex items-start gap-4">
+                                <div class="w-12 h-12 rounded-lg bg-blue-500/20 flex items-center justify-center text-blue-400 text-xl flex-shrink-0">
+                                    <i class="fa-solid fa-screwdriver-wrench"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-white mb-1">Некачественные услуги</h4>
+                                    <p class="text-sm text-gray-400">Услуги не в срок, не в полном объеме. ЗоЗПП.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div onclick="selectCategory('infoproduct')" class="category-card glass rounded-xl p-6 border border-white/10" data-category="infoproduct">
+                            <div class="flex items-start gap-4">
+                                <div class="w-12 h-12 rounded-lg bg-pink-500/20 flex items-center justify-center text-pink-400 text-xl flex-shrink-0">
+                                    <i class="fa-solid fa-graduation-cap"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-white mb-1">Онлайн-курсы / инфопродукты</h4>
+                                    <p class="text-sm text-gray-400">Возврат за некачественный курс. Ст. 32 ЗоЗПП.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div onclick="selectCategory('loan')" class="category-card glass rounded-xl p-6 border border-white/10" data-category="loan">
+                            <div class="flex items-start gap-4">
+                                <div class="w-12 h-12 rounded-lg bg-green-500/20 flex items-center justify-center text-green-400 text-xl flex-shrink-0">
+                                    <i class="fa-solid fa-hand-holding-dollar"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-white mb-1">Долг по расписке</h4>
+                                    <p class="text-sm text-gray-400">Возврат долга по расписке или договору займа.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div onclick="selectCategory('contract')" class="category-card glass rounded-xl p-6 border border-white/10" data-category="contract">
+                            <div class="flex items-start gap-4">
+                                <div class="w-12 h-12 rounded-lg bg-gray-500/20 flex items-center justify-center text-gray-400 text-xl flex-shrink-0">
+                                    <i class="fa-solid fa-file-signature"></i>
+                                </div>
+                                <div>
+                                    <h4 class="font-semibold text-white mb-1">Универсальная претензия</h4>
+                                    <p class="text-sm text-gray-400">Любая ситуация с нарушением договора.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SUBSCRIPTION REQUIRED MODAL (kept outside category items) -->
+                    <div id="subscription-modal" class="modal-backdrop hidden">
+                        <div class="modal-content max-w-md">
+                            <button class="modal-close" onclick="toggleSubscriptionModal()">×</button>
+                            <h2 class="font-display text-2xl font-bold text-white mb-2">🔔 Подписка в Telegram — бесплатный доступ</h2>
+                            <p class="text-gray-300 text-sm mb-4">Чтобы пользоваться бесплатными генерациями, подпишитесь на наш Telegram-канал. Откройте канал в новом окне, подпишитесь, затем вернитесь и нажмите кнопку «Я подписался» — документ начнёт скачивание. Окно останется открытым, данные не будут удалены.</p>
+
+                            <div class="space-y-4">
+                                <div class="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                                    <p class="text-blue-400 font-semibold mb-2">📢 Канал: <span class="text-white">Готовим вкусно и просто!</span></p>
+                                    <p class="text-gray-400 text-xs mb-3">Нажмите кнопку ниже, подпишитесь в Telegram, затем вернитесь сюда и нажмите «Я подписался».</p>
+                                    <a href="https://t.me/+aoEZQHaThEAwZTQy" target="_blank" class="block w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-center rounded-lg transition-colors text-sm">
+                                        <i class="fa-brands fa-telegram mr-2"></i>Открыть канал в Telegram
+                                    </a>
+                                </div>
+
+                                <div class="p-3 rounded-lg bg-green-500/10 border border-green-500/20">
+                                    <p class="text-green-400 text-xs font-semibold">✓ После подписки вернитесь и нажмите кнопку «Я подписался» — окно останется открытым.</p>
+                                </div>
+
+                                <button id="subscription-confirm-btn" onclick="proceedWithGeneration()" class="w-full py-3 btn-primary rounded-xl font-semibold text-white">
+                                    ✔ Я подписался — скачать документ
+                                </button>
+
+                                <button onclick="toggleSubscriptionModal()" class="w-full py-3 glass rounded-xl font-semibold text-white hover:bg-white/10 transition-colors border border-white/10">Закрыть</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Step 2: Mode Selection -->
+            <div id="step-2" class="step-content section-hidden">
+                <div class="glass rounded-2xl p-8 border border-white/10">
+                    <h3 class="text-xl font-bold text-white mb-6">Формат претензии</h3>
+                    
+                    <div class="grid md:grid-cols-2 gap-4 mb-6">
+                        <button onclick="setMode('individual')" class="mode-btn p-6 rounded-xl border-2 border-cyan-500 bg-cyan-500/10 text-left" id="mode-individual">
+                            <div class="w-12 h-12 rounded-lg bg-cyan-500/20 flex items-center justify-center text-cyan-400 text-xl mb-4">
+                                <i class="fa-solid fa-user"></i>
+                            </div>
+                            <h4 class="font-semibold text-white mb-1">Индивидуальная</h4>
+                            <p class="text-sm text-gray-400">Один заявитель — один ответчик</p>
+                        </button>
+                        
+                        <button onclick="setMode('collective')" class="mode-btn p-6 rounded-xl border border-white/10 hover:border-cyan-500/50 text-left opacity-50" id="mode-collective">
+                            <div class="w-12 h-12 rounded-lg bg-purple-500/20 flex items-center justify-center text-purple-400 text-xl mb-4">
+                                <i class="fa-solid fa-users"></i>
+                            </div>
+                            <h4 class="font-semibold text-white mb-1">Коллективная</h4>
+                            <p class="text-sm text-gray-400">Несколько заявителей</p>
+                            <span class="inline-block mt-2 px-2 py-1 bg-amber-500/20 text-amber-400 text-xs rounded">Требуется PRO</span>
+                        </button>
+                    </div>
+                    
+                    <div class="flex gap-4">
+                        <button onclick="prevStep()" class="flex-1 py-3 glass rounded-xl font-semibold text-white hover:bg-white/10 transition-all border border-white/10">Назад</button>
+                        <button onclick="nextStep()" class="flex-1 py-3 btn-primary rounded-xl font-semibold text-white">Далее</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Step 3: Respondent Data -->
+            <div id="step-3" class="step-content section-hidden">
+                <div class="glass rounded-2xl p-8 border border-white/10">
+                    <h3 class="text-xl font-bold text-white mb-6">Данные ответчика</h3>
+                    
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">Полное наименование / ФИО</label>
+                            <input type="text" id="resp-name" class="w-full px-4 py-3 rounded-xl input-field text-white" placeholder="ООО «Компания» или Иванов Иван Иванович">
+                        </div>
+                        
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">Юридический адрес / Адрес регистрации</label>
+                            <input type="text" id="resp-address" class="w-full px-4 py-3 rounded-xl input-field text-white" placeholder="г. Москва, ул. Примерная, д. 1">
+                        </div>
+                        
+                        <div class="grid md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-2">Должность руководителя</label>
+                                <input type="text" id="resp-position" class="w-full px-4 py-3 rounded-xl input-field text-white" placeholder="Генеральному директору">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-2">ФИО руководителя</label>
+                                <input type="text" id="resp-ceo" class="w-full px-4 py-3 rounded-xl input-field text-white" placeholder="Иванову И.И.">
+                            </div>
+                        </div>
+                        
+                        <div class="grid md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-2">ИНН (если известен)</label>
+                                <input type="text" id="resp-inn" class="w-full px-4 py-3 rounded-xl input-field text-white" placeholder="7701234567">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-2">ОГРН (если известен)</label>
+                                <input type="text" id="resp-ogrn" class="w-full px-4 py-3 rounded-xl input-field text-white" placeholder="1157746123456">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="flex gap-4 mt-8">
+                        <button onclick="prevStep()" class="flex-1 py-3 glass rounded-xl font-semibold text-white hover:bg-white/10 transition-all border border-white/10">Назад</button>
+                        <button onclick="saveRespondentAndNext()" class="flex-1 py-3 btn-primary rounded-xl font-semibold text-white">Далее</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Step 4: Claimants Data -->
+            <div id="step-4" class="step-content section-hidden">
+                <div class="glass rounded-2xl p-8 border border-white/10">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="text-xl font-bold text-white" id="claimants-title">Данные заявителя</h3>
+                        <button onclick="addWorker()" id="add-claimant-btn" class="hidden px-4 py-2 bg-cyan-500/20 text-cyan-400 rounded-lg text-sm hover:bg-cyan-500/30 transition-colors">
+                            <i class="fa-solid fa-plus mr-1"></i>Добавить заявителя
+                        </button>
+                    </div>
+                    
+                    <div id="workers-container" class="space-y-4">
+                        <!-- Dynamic worker forms -->
+                    </div>
+                    
+                    <div class="flex gap-4 mt-8">
+                        <button onclick="prevStep()" class="flex-1 py-3 glass rounded-xl font-semibold text-white hover:bg-white/10 transition-all border border-white/10">Назад</button>
+                        <button onclick="saveWorkersAndNext()" class="flex-1 py-3 btn-primary rounded-xl font-semibold text-white">Далее</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Step 5: Circumstances -->
+            <div id="step-5" class="step-content section-hidden">
+                <div class="glass rounded-2xl p-8 border border-white/10">
+                    <h3 class="text-xl font-bold text-white mb-6">Обстоятельства дела</h3>
+                    
+                    <div class="space-y-6">
+                        <!-- Work Period (for labor disputes) -->
+                        <div id="labor-period" class="p-4 rounded-xl bg-white/5 border border-white/10">
+                            <h4 class="font-semibold text-white mb-4">Период работы / исполнения обязательств</h4>
+                            <div class="grid md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-300 mb-2">С</label>
+                                    <input type="date" id="work-start" class="w-full px-4 py-3 rounded-xl input-field text-white">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-300 mb-2">По</label>
+                                    <input type="date" id="work-end" class="w-full px-4 py-3 rounded-xl input-field text-white">
+                                    <label class="flex items-center gap-2 mt-2">
+                                        <input type="checkbox" id="still-working" class="w-4 h-4 rounded border-gray-600 text-cyan-500" onchange="toggleStillWorking()">
+                                        <span class="text-gray-400 text-sm">По настоящее время</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Supervisor & Workplace -->
+                        <div id="labor-details" class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-2">Кто осуществлял руководство (ФИО)</label>
+                                <input type="text" id="supervisor" class="w-full px-4 py-3 rounded-xl input-field text-white" placeholder="Юнусов Альберт Рушанович">
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium text-gray-300 mb-2">Объект выполнения работ (адрес)</label>
+                                <input type="text" id="workplace" class="w-full px-4 py-3 rounded-xl input-field text-white" placeholder="г. Аткарск, ул. Гоголя, д. 17">
+                            </div>
+                        </div>
+                        
+                        <!-- Payment Form -->
+                        <div class="p-4 rounded-xl bg-white/5 border border-white/10">
+                            <h4 class="font-semibold text-white mb-4">Форма выплаты / оплаты</h4>
+                            <textarea id="payment-form" rows="3" class="w-full px-4 py-3 rounded-xl input-field text-white resize-none" placeholder="Например: наличными, переводом на карту Сбербанка, частично авансом..."></textarea>
+                        </div>
+                        
+                        <!-- Debt Amount -->
+                        <div class="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                            <h4 class="font-semibold text-amber-400 mb-4">Задолженность</h4>
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-300 mb-2">Сумма (руб.)</label>
+                                    <input type="number" id="debt-amount" class="w-full px-4 py-3 rounded-xl input-field text-white" placeholder="125000" oninput="calculateCompensation()">
+                                </div>
+                                
+                                <div class="grid md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-300 mb-2">Дата, когда должны были выплатить</label>
+                                        <input type="date" id="due-date" class="w-full px-4 py-3 rounded-xl input-field text-white" onchange="calculateCompensation()">
+                                    </div>
+                                    <div>
+                                        <label class="block text-sm font-medium text-gray-300 mb-2">Дней просрочки</label>
+                                        <input type="number" id="delay-days" class="w-full px-4 py-3 rounded-xl input-field text-white" placeholder="45" oninput="calculateCompensation()">
+                                    </div>
+                                </div>
+                                
+                                <div id="compensation-result" class="hidden p-3 rounded-lg bg-black/30">
+                                    <div class="flex justify-between items-center">
+                                        <span class="text-gray-400 text-sm">Компенсация по ст. 236 ТК РФ:</span>
+                                        <span id="compensation-amount" class="text-amber-400 font-bold">0 ₽</span>
+                                    </div>
+                                    <p class="text-xs text-gray-500 mt-1" id="compensation-formula">1/150 × 21% × сумма × дни</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Partial Payments -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">Частичные выплаты (если были)</label>
+                            <textarea id="partial-payments" rows="2" class="w-full px-4 py-3 rounded-xl input-field text-white resize-none" placeholder="28.12.2025 — 25 000 ₽ (перевод на карту)"></textarea>
+                        </div>
+                        
+                        <!-- Social Impact -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">Социально значимые последствия (необязательно)</label>
+                            <textarea id="social-impact" rows="3" class="w-full px-4 py-3 rounded-xl input-field text-white resize-none" placeholder="Например: рождение ребенка, смерть родственника, необходимость лечения..."></textarea>
+                        </div>
+                        
+                        <!-- Description -->
+                        <div>
+                            <label class="block text-sm font-medium text-gray-300 mb-2">Дополнительные обстоятельства</label>
+                            <textarea id="description" rows="4" class="w-full px-4 py-3 rounded-xl input-field text-white resize-none" placeholder="Опишите ситуацию подробнее..."></textarea>
+                        </div>
+                    </div>
+                    
+                    <div class="flex gap-4 mt-8">
+                        <button onclick="prevStep()" class="flex-1 py-3 glass rounded-xl font-semibold text-white hover:bg-white/10 transition-all border border-white/10">Назад</button>
+                        <button onclick="saveCircumstancesAndNext()" class="flex-1 py-3 btn-primary rounded-xl font-semibold text-white">Далее</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Step 6: Evidence -->
+            <div id="step-6" class="step-content section-hidden">
+                <div class="glass rounded-2xl p-8 border border-white/10">
+                    <h3 class="text-xl font-bold text-white mb-2">Подтверждение фактического допуска</h3>
+                    <p class="text-gray-400 text-sm mb-6">Отметьте доказательства, которые у вас есть</p>
+                    
+                    <div class="space-y-3 mb-6">
+                        <label class="flex items-start gap-3 p-4 rounded-xl border border-white/10 cursor-pointer hover:bg-white/5 transition-colors">
+                            <input type="checkbox" class="evidence-check w-5 h-5 rounded border-gray-600 text-cyan-500 mt-0.5" value="Переписка в мессенджерах">
+                            <div>
+                                <span class="text-white block font-medium">Переписка в мессенджерах</span>
+                                <span class="text-gray-400 text-sm">Скриншоты переписки о работе и оплате</span>
+                            </div>
+                        </label>
+                        
+                        <label class="flex items-start gap-3 p-4 rounded-xl border border-white/10 cursor-pointer hover:bg-white/5 transition-colors">
+                            <input type="checkbox" class="evidence-check w-5 h-5 rounded border-gray-600 text-cyan-500 mt-0.5" value="Банковские переводы">
+                            <div>
+                                <span class="text-white block font-medium">Банковские переводы</span>
+                                <span class="text-gray-400 text-sm">Выписки, чеки, подтверждения переводов</span>
+                            </div>
+                        </label>
+                        
+                        <label class="flex items-start gap-3 p-4 rounded-xl border border-white/10 cursor-pointer hover:bg-white/5 transition-colors">
+                            <input type="checkbox" class="evidence-check w-5 h-5 rounded border-gray-600 text-cyan-500 mt-0.5" value="Журнал учета рабочего времени">
+                            <div>
+                                <span class="text-white block font-medium">Журнал учета рабочего времени</span>
+                                <span class="text-gray-400 text-sm">Табель с отметками и подписями</span>
+                            </div>
+                        </label>
+                        
+                        <label class="flex items-start gap-3 p-4 rounded-xl border border-white/10 cursor-pointer hover:bg-white/5 transition-colors">
+                            <input type="checkbox" class="evidence-check w-5 h-5 rounded border-gray-600 text-cyan-500 mt-0.5" value="Пропускная система">
+                            <div>
+                                <span class="text-white block font-medium">Пропуск / Карта доступа</span>
+                                <span class="text-gray-400 text-sm">Пропуск с фото и названием компании</span>
+                            </div>
+                        </label>
+                        
+                        <label class="flex items-start gap-3 p-4 rounded-xl border border-white/10 cursor-pointer hover:bg-white/5 transition-colors">
+                            <input type="checkbox" class="evidence-check w-5 h-5 rounded border-gray-600 text-cyan-500 mt-0.5" value="Свидетельские показания">
+                            <div>
+                                <span class="text-white block font-medium">Свидетельские показания</span>
+                                <span class="text-gray-400 text-sm">Показания коллег, подтверждающих факт работы</span>
+                            </div>
+                        </label>
+                        
+                        <label class="flex items-start gap-3 p-4 rounded-xl border border-white/10 cursor-pointer hover:bg-white/5 transition-colors">
+                            <input type="checkbox" class="evidence-check w-5 h-5 rounded border-gray-600 text-cyan-500 mt-0.5" value="Трудовой договор">
+                            <div>
+                                <span class="text-white block font-medium">Трудовой / Гражданско-правовой договор</span>
+                                <span class="text-gray-400 text-sm">Подписанный договор (даже если не оформлен)</span>
+                            </div>
+                        </label>
+                    </div>
+                    
+                    <!-- Witness Block (if selected) -->
+                    <div id="witness-block" class="hidden p-4 rounded-xl bg-white/5 border border-white/10 mb-6">
+                        <h4 class="font-semibold text-white mb-4">Данные свидетеля</h4>
+                        <div class="space-y-4">
+                            <input type="text" id="witness-name" class="w-full px-4 py-3 rounded-xl input-field text-white" placeholder="ФИО свидетеля">
+                            <input type="text" id="witness-birth" class="w-full px-4 py-3 rounded-xl input-field text-white" placeholder="Дата рождения">
+                            <textarea id="witness-text" rows="2" class="w-full px-4 py-3 rounded-xl input-field text-white resize-none" placeholder="Текст подтверждения свидетеля"></textarea>
+                        </div>
+                    </div>
+                    
+                    <div class="flex gap-4">
+                        <button onclick="prevStep()" class="flex-1 py-3 glass rounded-xl font-semibold text-white hover:bg-white/10 transition-all border border-white/10">Назад</button>
+                        <button onclick="saveEvidenceAndNext()" class="flex-1 py-3 btn-primary rounded-xl font-semibold text-white">Далее</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Step 7: Review & Generate -->
+            <div id="step-7" class="step-content section-hidden">
+                <div class="glass rounded-2xl p-8 border border-white/10">
+                    <h3 class="text-xl font-bold text-white mb-6">Проверка и генерация</h3>
+                    
+                    <div class="p-4 rounded-xl bg-cyan-500/10 border border-cyan-500/20 mb-6">
+                        <label class="flex items-start gap-3 cursor-pointer">
+                            <input type="checkbox" id="confirm-data" class="w-5 h-5 rounded border-gray-600 text-cyan-500 mt-0.5">
+                            <div>
+                                <span class="text-white block font-medium">Подтверждаю достоверность данных</span>
+                                <span class="text-gray-400 text-sm">Я понимаю, что предоставление ложных сведений может повлечь ответственность. Все данные соответствуют действительности.</span>
+                            </div>
+                        </label>
+                    </div>
+                    
+                    <div id="limit-warning" class="hidden p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 mb-6">
+                        <div class="flex items-center gap-3 text-amber-400">
+                            <i class="fa-solid fa-triangle-exclamation"></i>
+                            <span>Использовано <span id="used-count">0</span> из 2 бесплатных генераций</span>
+                        </div>
+                    </div>
+                    
+                    <div class="flex flex-col gap-3">
+                        <button onclick="showPreview()" class="w-full py-3 glass rounded-xl font-semibold text-white hover:bg-white/10 transition-all border border-white/10">
+                            <i class="fa-solid fa-eye mr-2"></i>Предпросмотр текста
+                        </button>
+                        
+                        <button onclick="generateDocument('pdf')" class="w-full py-4 btn-primary rounded-xl font-semibold text-white text-lg">
+                            <i class="fa-solid fa-file-pdf mr-2"></i>Скачать PDF
+                        </button>
+                        
+                        <button onclick="generateDocument('docx')" id="docx-btn" class="w-full py-4 btn-gold rounded-xl font-semibold text-gray-900 text-lg hidden">
+                            <i class="fa-solid fa-file-word mr-2"></i>Скачать DOCX (PRO)
+                        </button>
+                        
+                        <button onclick="resetAllData()" class="w-full py-3 glass rounded-xl font-semibold text-white hover:bg-white/10 transition-all border border-white/10">
+                            <i class="fa-solid fa-rotate-left mr-2"></i>Начать заново
+                        </button>
+                    </div>
+                    
+                    <div id="preview-container" class="mt-6 p-4 rounded-xl bg-gray-900/50 border border-white/5 hidden max-h-96 overflow-y-auto">
+                        <pre id="preview-text" class="whitespace-pre-wrap text-sm text-gray-300 font-mono leading-relaxed"></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- PRICING SECTION -->
+    <section id="pricing" class="section-hidden min-h-screen pt-24 pb-12">
+        <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="text-center mb-12">
+                <h2 class="font-display text-4xl font-bold text-white mb-4">Выберите тариф</h2>
+                <p class="text-gray-400 text-lg">Выберите подходящий план для ваших нужд</p>
+            </div>
+            
+            <div class="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+                <div class="glass rounded-2xl p-8 border border-white/10">
+                    <div class="text-center mb-8">
+                        <h3 class="text-2xl font-bold text-white mb-2">Free</h3>
+                        <div class="text-4xl font-bold text-gray-300 font-display">0 ₽</div>
+                        <p class="text-gray-400 text-sm mt-4">Базовый доступ к сервису</p>
+                    </div>
+                    
+                    <ul class="space-y-3 mb-8">
+                        <li class="flex items-center gap-3 text-gray-300"><i class="fa-solid fa-check text-green-400"></i><span>2 PDF-документа</span></li>
+                        <li class="flex items-center gap-3 text-gray-300"><i class="fa-solid fa-check text-green-400"></i><span>Индивидуальные претензии</span></li>
+                        <li class="flex items-center gap-3 text-gray-300"><i class="fa-solid fa-check text-green-400"></i><span>Все категории споров</span></li>
+                        <li class="flex items-center gap-3 text-gray-500 text-sm"><i class="fa-solid fa-xmark text-gray-600"></i><span>Без коллективных обращений</span></li>
+                        <li class="flex items-center gap-3 text-gray-500 text-sm"><i class="fa-solid fa-xmark text-gray-600"></i><span>Без формата DOCX</span></li>
+                    </ul>
+                    
+                    <div class="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs text-center mb-4">
+                        🎁 Сюрпризы для подписчиков Telegram-канала
+                    </div>
+                    
+                    <button onclick="getFreeAccess()" class="w-full py-3 glass rounded-xl font-semibold text-white hover:bg-white/10 transition-all border border-white/10">Получить бесплатный доступ</button>
+                </div>
+                
+                <div class="glass rounded-2xl p-8 border border-amber-500/30 relative overflow-hidden">
+                    <div class="absolute top-4 right-4"><span class="pro-badge">PRO</span></div>
+                    
+                    <div class="text-center mb-8">
+                        <h3 class="text-2xl font-bold text-white mb-2">PRO</h3>
+                        <div class="text-4xl font-bold text-gradient-gold font-display">1490 ₽</div>
+                        <p class="text-gray-400 text-sm mt-4">в месяц</p>
+                        <p class="text-gray-300 text-sm mt-1 font-medium">Максимальные возможности сервиса</p>
+                    </div>
+                    
+                    <ul class="space-y-3 mb-8">
+                        <li class="flex items-start gap-3 text-white"><i class="fa-solid fa-check text-amber-400 mt-1"></i><span>Неограниченное количество документов</span></li>
+                        <li class="flex items-start gap-3 text-white"><i class="fa-solid fa-check text-amber-400 mt-1"></i><span>Поддержка коллективных обращений</span></li>
+                        <li class="flex items-start gap-3 text-white"><i class="fa-solid fa-check text-amber-400 mt-1"></i><span>Экспорт в PDF и DOCX</span></li>
+                        <li class="flex items-start gap-3 text-white"><i class="fa-solid fa-check text-amber-400 mt-1"></i><span>Доступ к расширенным правовым шаблонам</span></li>
+                        <li class="flex items-start gap-3 text-white"><i class="fa-solid fa-check text-amber-400 mt-1"></i><span>Приоритетная поддержка</span></li>
+                    </ul>
+                    
+                    <button onclick="toggleProModal()" class="w-full py-4 btn-gold rounded-xl font-semibold text-gray-900">Активировать PRO</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- GUIDE / INSTRUCTION SECTION -->
+    <section id="guide" class="section-hidden min-h-screen pt-24 pb-12">
+        <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-gray-300">
+            <h2 class="font-display text-4xl font-bold text-white mb-6">Пошаговый порядок направления претензии</h2>
+
+            <div class="space-y-4">
+                <div class="guide-step">
+                    <div class="step-number">1</div>
+                    <div>Заполните данные в генераторе: укажите тип спора (потребительский, гражданский, трудовой), стороны, суммы требований и обстоятельства. Система автоматически подберёт нормы закона (Закон о защите прав потребителей, ГК РФ, ТК РФ).</div>
+                </div>
+                <div class="guide-step">
+                    <div class="step-number">2</div>
+                    <div>Скачайте документ: PDF бесплатно, DOCX — в версии PRO. Перед отправкой внимательно проверьте корректность всех сведений.</div>
+                </div>
+                <div class="guide-step">
+                    <div class="step-number">3</div>
+                    <div>Распечатайте в двух экземплярах и подпишите каждый от руки, указав дату.</div>
+                </div>
+                <div class="guide-step">
+                    <div class="step-number">4</div>
+                    <div>Направьте претензию заказным письмом через Почту России с уведомлением о вручении и описью вложения. Опись оформляется отдельно и подтверждает, что именно претензия была отправлена.</div>
+                </div>
+                <div class="guide-step">
+                    <div class="step-number">5</div>
+                    <div>Сохраните доказательства: почтовый чек, экземпляр описи вложения, уведомление о вручении. Они подтверждают соблюдение претензионного порядка.</div>
+                </div>
+                <div class="guide-step">
+                    <div class="step-number">6</div>
+                    <div>Ожидайте ответ: по ЗПП — 10 дней, по ГК РФ — 30 дней, по трудовым спорам — разумный срок (рекомендуется 10–30 дн.).</div>
+                </div>
+                <div class="guide-step">
+                    <div class="step-number">7</div>
+                    <div>При отсутствии ответа или отказе вы вправе обратиться в суд, подать жалобу в ГИТ (трудовые споры) или в Роспотребнадзор (ЗПП).</div>
+                </div>
+            </div>
+
+            <p class="mt-8 font-semibold text-amber-400">⚠️ Важно для трудовых споров</p>
+            <p class="text-gray-400">
+                При невыплате заработной платы подайте жалобу в Государственную инспекцию труда и обращение в прокуратуру. Срок исковой давности — 1 год (ст. 392 ТК РФ).
+            </p>
+        </div>
+    </section>
+
+    <!-- FREE ACCESS MODAL -->
+    <div id="free-modal" class="modal-backdrop hidden">
+        <div class="modal-content max-w-md">
+            <button class="modal-close" onclick="toggleFreeModal()">×</button>
+            <h2 class="font-display text-2xl font-bold text-white mb-4">Получить бесплатный доступ</h2>
+            
+            <div class="space-y-4">
+                <div class="p-3 rounded-lg bg-green-500/10 border border-green-500/20">
+                    <p class="text-green-400 text-sm font-semibold">✔ 2 PDF-документа в месяц</p>
+                    <p class="text-gray-400 text-xs mt-1">Подпишитесь на наш Telegram-канал и получите доступ</p>
+                </div>
+                
+                <div class="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
+                    <p class="text-white font-semibold mb-2">Канал: <span class="text-blue-400">Готовим вкусно и просто!</span></p>
+                    <p class="text-gray-400 text-sm mb-3">Нажмите кнопку ниже, чтобы перейти на канал и подписаться:</p>
+                    <a href="https://t.me/+aoEZQHaThEAwZTQy" target="_blank" class="block w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-center rounded-lg transition-colors text-sm">
+                        <i class="fa-brands fa-telegram mr-2"></i>Перейти на канал
+                    </a>
+                </div>
+                
+                <div class="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                    <p class="text-amber-300 text-sm font-semibold mb-2">👥 Контакты администраторов:</p>
+                    <div class="space-y-1">
+                        <a href="https://t.me/viktor64but" target="_blank" class="flex items-center gap-2 text-cyan-400 hover:text-cyan-300 text-sm">
+                            <i class="fa-brands fa-telegram"></i>@viktor64but
+                        </a>
+                        <a href="https://t.me/HappyEnd64" target="_blank" class="flex items-center gap-2 text-cyan-400 hover:text-cyan-300 text-sm">
+                            <i class="fa-brands fa-telegram"></i>@HappyEnd64
+                        </a>
+                    </div>
+                </div>
+                
+                <p class="text-gray-400 text-xs text-center">После подписки на канал нажмите кнопку ниже, чтобы активировать доступ</p>
+                
+                <button onclick="activateFreeAccess()" class="w-full py-3 btn-primary rounded-xl font-semibold text-white">
+                    ✔ Я подписался. Активировать доступ
+                </button>
+                
+                <button onclick="toggleFreeModal()" class="w-full py-3 glass rounded-xl font-semibold text-white hover:bg-white/10 transition-colors border border-white/10">Отменить</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PRO INFO MODAL -->
+    <div id="pro-modal" class="modal-backdrop hidden">
+        <div class="modal-content">
+            <button class="modal-close" onclick="toggleProModal()">×</button>
+            
+            <div class="text-center mb-5">
+                <div class="text-4xl mb-3">👑</div>
+                <h2 class="font-display text-3xl font-bold text-white mb-2">LegalPro PRO — максимальная защита ваших прав</h2>
+                <p class="text-gray-400 text-sm">PRO-версия создана для тех, кто хочет действовать уверенно и профессионально.</p>
+            </div>
+
+            <div class="mb-4 p-4 rounded-lg border border-amber-400/30 bg-amber-400/5">
+                <p class="text-amber-400 font-bold text-sm uppercase tracking-wider mb-3">Что входит в PRO</p>
+                <ul class="space-y-2">
+                    <li class="flex items-center gap-3 text-gray-200 text-sm">
+                        <span class="text-amber-400 font-bold">✓</span> Неограниченное количество документов
+                    </li>
+                    <li class="flex items-center gap-3 text-gray-200 text-sm">
+                        <span class="text-amber-400 font-bold">✓</span> Поддержка коллективных обращений
+                    </li>
+                    <li class="flex items-center gap-3 text-gray-200 text-sm">
+                        <span class="text-amber-400 font-bold">✓</span> Экспорт в PDF и DOCX
+                    </li>
+                    <li class="flex items-center gap-3 text-gray-200 text-sm">
+                        <span class="text-amber-400 font-bold">✓</span> Расширенные правовые шаблоны
+                    </li>
+                    <li class="flex items-center gap-3 text-gray-200 text-sm">
+                        <span class="text-amber-400 font-bold">✓</span> Приоритетная поддержка
+                    </li>
+                </ul>
+            </div>
+
+            <div class="mb-4 p-4 rounded-lg border border-cyan-400/30 bg-cyan-400/5">
+                <p class="text-cyan-400 font-bold text-sm uppercase tracking-wider mb-3">Почему это важно</p>
+                <ul class="space-y-2">
+                    <li class="flex items-start gap-3 text-gray-300 text-sm">
+                        <span class="text-cyan-400 mt-0.5">→</span> Увеличивает вероятность добровольной выплаты
+                    </li>
+                    <li class="flex items-start gap-3 text-gray-300 text-sm">
+                        <span class="text-cyan-400 mt-0.5">→</span> Усиливает юридическую позицию
+                    </li>
+                    <li class="flex items-start gap-3 text-gray-300 text-sm">
+                        <span class="text-cyan-400 mt-0.5">→</span> Повышает серьёзность документа
+                    </li>
+                </ul>
+            </div>
+
+            <div class="mb-5 p-4 rounded-lg glass border border-amber-400/20">
+                <p class="text-gray-200 text-sm">Нужна помощь? Готов помочь в оформлении документов и ответить на все вопросы.</p>
+                <button onclick="window.open('https://t.me/zks_manager', '_blank')" class="mt-3 w-full py-2 px-3 bg-blue-600/20 hover:bg-blue-600/30 rounded-lg text-blue-400 hover:text-blue-300 font-medium transition-colors text-sm flex items-center justify-center gap-2">
+                    <i class="fa-brands fa-telegram"></i> Поддержка
+                </button>
+            </div>
+
+            <div class="text-center mb-5">
+                <p class="text-amber-400 text-3xl font-bold">1490 ₽</p>
+                <p class="text-gray-400 text-xs">/ месяц</p>
+            </div>
+
+            <button onclick="buyPro()" class="w-full py-4 btn-gold rounded-xl font-semibold text-gray-900 mb-3 flex items-center justify-center gap-2 text-lg">
+                <i class="fa-solid fa-crown"></i> Активировать PRO
+            </button>
+
+            <button onclick="toggleProModal()" class="w-full py-3 rounded-xl font-medium text-gray-400 hover:text-gray-200 bg-gray-900/50 hover:bg-gray-800/50 transition-colors border border-gray-800">Закрыть</button>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // AUTH & USER MANAGEMENT
+        // ==========================================
+        
+        function initTelegramAuth() {
+            console.log('[AUTH] Starting authentication...');
+            
+            let authPayload;
+            
+            if (window.Telegram && Telegram.WebApp && Telegram.WebApp.initDataUnsafe && Telegram.WebApp.initDataUnsafe.user) {
+                console.log('[AUTH] Using Telegram.WebApp');
+                Telegram.WebApp.ready();
+                const user = Telegram.WebApp.initDataUnsafe.user;
+                authPayload = {
+                    telegramId: String(user.id),
+                    username: user.username || '',
+                    firstName: user.first_name || '',
+                    lastName: user.last_name || ''
+                };
+            } else {
+                console.log('[AUTH] Using browser fallback');
+                const fakeId = 'web_' + Date.now();
+                authPayload = {
+                    telegramId: fakeId,
+                    username: 'web_test',
+                    firstName: 'Web',
+                    lastName: 'User'
+                };
+            }
+            
+            console.log('[AUTH] Sending payload:', authPayload);
+            
+            fetch(`${API_BASE}/api/auth/telegram`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(authPayload)
+            })
+            .then(res => {
+                console.log('[AUTH] Response status:', res.status);
+                if (!res.ok) {
+                    return res.json().then(err => Promise.reject(err));
+                }
+                return res.json();
+            })
+            .then(data => {
+                console.log('[AUTH] Success! User:', data.user?.id, 'Token:', data.token?.substring(0, 20) + '...');
+                authToken = data.token;
+                currentUser = data.user;
+                localStorage.setItem('legalpro_token', data.token);
+                try { localStorage.setItem('legalpro_user', JSON.stringify(data.user)); } catch(e){}
+                updateUIForUser();
+                showToast('✓ Успешный вход!', 'success');
+            })
+            .catch(err => {
+                console.error('[AUTH] Error:', err);
+                showToast('✗ Ошибка: ' + (err.error || err.message || 'Проблема с сервером'), 'error');
+            });
+        }
+        
+        function updateUIForUser() {
+            if (!currentUser) return;
+            
+            document.getElementById('login-btn').classList.add('hidden');
+            document.getElementById('user-menu').classList.remove('hidden');
+            document.getElementById('user-name').textContent = currentUser.username || currentUser.firstName;
+            
+            if (currentUser.proStatus) {
+                document.getElementById('pro-indicator').classList.remove('hidden');
+                document.getElementById('docx-btn').classList.remove('hidden');
+            }
+            
+            // Update limit warning
+            if (!currentUser.proStatus) {
+                const used = currentUser.generationCount || 0;
+                document.getElementById('used-count').textContent = used;
+                document.getElementById('limit-warning').classList.remove('hidden');
+            }
+        }
+        
+        function logout() {
+            authToken = null;
+            currentUser = null;
+            localStorage.removeItem('legalpro_token');
+            try { localStorage.removeItem('legalpro_user'); } catch(e){}
+            document.getElementById('login-btn').classList.remove('hidden');
+            document.getElementById('user-menu').classList.add('hidden');
+            document.getElementById('pro-indicator').classList.add('hidden');
+            showToast('Вы вышли из системы');
+        }
+        
+        // ==========================================
+        // NAVIGATION
+        // ==========================================
+        
+        function showSection(sectionId) {
+            document.querySelectorAll('section').forEach(el => {
+                if (el.id === sectionId) {
+                    el.classList.remove('section-hidden');
+                } else {
+                    el.classList.add('section-hidden');
+                }
+            });
+            window.scrollTo(0, 0);
+        }
+        
+        function startGenerator() {
+            if (!currentUser) {
+                showToast('Сначала войдите через Telegram', 'warning');
+                return;
+            }
+            showSection('generator');
+            currentStep = 1;
+            updateProgress();
+        }
+        
+        // ==========================================
+        // WIZARD LOGIC
+        // ==========================================
+        
+        function selectCategory(category) {
+            claimData.type = category;
+            
+            document.querySelectorAll('.category-card').forEach(card => {
+                card.classList.remove('selected', 'border-cyan-500', 'bg-cyan-500/10');
+            });
+            document.querySelector(`[data-category="${category}"]`).classList.add('selected', 'border-cyan-500', 'bg-cyan-500/10');
+            
+            // Show/hide labor-specific fields
+            const isLabor = ['salary', 'unofficial', 'dismissal'].includes(category);
+            document.getElementById('labor-period').style.display = isLabor ? 'block' : 'none';
+            document.getElementById('labor-details').style.display = isLabor ? 'block' : 'none';
+            
+            setTimeout(() => nextStep(), 300);
+        }
+        
+        function setMode(mode) {
+            if (mode === 'collective' && !currentUser?.proStatus) {
+                showToast('Коллективные претензии доступны в PRO', 'warning');
+                return;
+            }
+            
+            claimData.mode = mode;
+            
+            document.querySelectorAll('.mode-btn').forEach(btn => {
+                btn.classList.remove('border-cyan-500', 'bg-cyan-500/10');
+                btn.classList.add('border-white/10', 'opacity-50');
+            });
+            
+            document.getElementById(`mode-${mode}`).classList.remove('border-white/10', 'opacity-50');
+            document.getElementById(`mode-${mode}`).classList.add('border-cyan-500', 'bg-cyan-500/10');
+            
+            if (mode === 'collective') {
+                document.getElementById('add-claimant-btn').classList.remove('hidden');
+                document.getElementById('claimants-title').textContent = 'Данные заявителей';
+            } else {
+                document.getElementById('add-claimant-btn').classList.add('hidden');
+                document.getElementById('claimants-title').textContent = 'Данные заявителя';
+                // Keep only first worker
+                while (claimData.workers.length > 1) removeWorker(claimData.workers.length - 1);
+            }
+        }
+        
+        function addWorker() {
+            const id = claimData.workers.length;
+            claimData.workers.push({ id });
+            
+            const container = document.getElementById('workers-container');
+            const div = document.createElement('div');
+            div.className = 'worker-card active';
+            div.id = `worker-${id}`;
+            div.innerHTML = `
+                ${id > 0 ? `<div class="remove-worker" onclick="removeWorker(${id})"><i class="fa-solid fa-times"></i></div>` : ''}
+                <h4 class="font-semibold text-white mb-4 text-sm text-cyan-400">Заявитель ${id + 1}</h4>
+                <div class="space-y-4">
+                    <input type="text" id="w-name-${id}" class="w-full px-4 py-3 rounded-xl input-field text-white" placeholder="ФИО полностью">
+                    <input type="text" id="w-address-${id}" class="w-full px-4 py-3 rounded-xl input-field text-white" placeholder="Адрес регистрации">
+                    <div class="grid grid-cols-2 gap-4">
+                        <input type="text" id="w-birth-${id}" class="w-full px-4 py-3 rounded-xl input-field text-white" placeholder="Дата рождения">
+                        <input type="text" id="w-phone-${id}" class="w-full px-4 py-3 rounded-xl input-field text-white" placeholder="Телефон">
+                    </div>
+                    <input type="text" id="w-position-${id}" class="w-full px-4 py-3 rounded-xl input-field text-white" placeholder="Должность">
+                    <input type="email" id="w-email-${id}" class="w-full px-4 py-3 rounded-xl input-field text-white" placeholder="Email (необязательно)">
+                    <input type="number" id="w-amount-${id}" class="w-full px-4 py-3 rounded-xl input-field text-white" placeholder="Сумма задолженности (руб.)">
+                </div>
+            `;
+            container.appendChild(div);
+        }
+        
+        function removeWorker(id) {
+            const idx = claimData.workers.findIndex(w => w.id === id);
+            if (idx > -1) {
+                claimData.workers.splice(idx, 1);
+                document.getElementById(`worker-${id}`).remove();
+            }
+        }
+        
+        function toggleStillWorking() {
+            const checked = document.getElementById('still-working').checked;
+            document.getElementById('work-end').disabled = checked;
+            if (checked) document.getElementById('work-end').value = '';
+        }
+        
+        function calculateCompensation() {
+            const amount = parseFloat(document.getElementById('debt-amount').value) || 0;
+            const days = parseInt(document.getElementById('delay-days').value) || 0;
+            const rate = 21.0; // Current key rate
+            
+            const compensation = amount * (rate / 100) / 150 * days;
+            
+            const resultBlock = document.getElementById('compensation-result');
+            if (amount > 0 && days > 0) {
+                resultBlock.classList.remove('hidden');
+                document.getElementById('compensation-amount').textContent = Math.round(compensation).toLocaleString('ru-RU') + ' ₽';
+                document.getElementById('compensation-formula').textContent = 
+                    `Расчет: ${amount.toLocaleString('ru-RU')} × ${rate}% ÷ 150 × ${days} дн.`;
+            } else {
+                resultBlock.classList.add('hidden');
+            }
+        }
+        
+        // ==========================================
+        // DATA COLLECTION
+        // ==========================================
+        
+        function saveRespondentAndNext() {
+            claimData.employer = {
+                name: document.getElementById('resp-name').value,
+                address: document.getElementById('resp-address').value,
+                position: document.getElementById('resp-position').value,
+                ceo: document.getElementById('resp-ceo').value,
+                inn: document.getElementById('resp-inn').value,
+                ogrn: document.getElementById('resp-ogrn').value
+            };
+            nextStep();
+        }
+        
+        function saveWorkersAndNext() {
+            claimData.workers = claimData.workers.map(w => ({
+                id: w.id,
+                name: document.getElementById(`w-name-${w.id}`).value,
+                address: document.getElementById(`w-address-${w.id}`).value,
+                birthDate: document.getElementById(`w-birth-${w.id}`).value,
+                phone: document.getElementById(`w-phone-${w.id}`).value,
+                position: document.getElementById(`w-position-${w.id}`).value,
+                email: document.getElementById(`w-email-${w.id}`).value,
+                amount: document.getElementById(`w-amount-${w.id}`).value
+            }));
+            nextStep();
+        }
+        
+        function saveCircumstancesAndNext() {
+            claimData.circumstances = {
+                workStart: document.getElementById('work-start').value,
+                workEnd: document.getElementById('still-working').checked ? 'настоящее время' : document.getElementById('work-end').value,
+                supervisor: document.getElementById('supervisor').value,
+                workplace: document.getElementById('workplace').value,
+                paymentForm: document.getElementById('payment-form').value,
+                debtAmount: document.getElementById('debt-amount').value,
+                dueDate: document.getElementById('due-date').value,
+                delayDays: document.getElementById('delay-days').value,
+                compensation: document.getElementById('compensation-amount').textContent,
+                partialPayments: document.getElementById('partial-payments').value,
+                socialImpact: document.getElementById('social-impact').value,
+                description: document.getElementById('description').value
+            };
+            nextStep();
+        }
+        
+        function saveEvidenceAndNext() {
+            claimData.evidence = Array.from(document.querySelectorAll('.evidence-check:checked')).map(cb => cb.value);
+            
+            if (claimData.evidence.includes('Свидетельские показания')) {
+                document.getElementById('witness-block').classList.remove('hidden');
+                claimData.witness = {
+                    name: document.getElementById('witness-name').value,
+                    birthDate: document.getElementById('witness-birth').value,
+                    text: document.getElementById('witness-text').value
+                };
+            }
+            
+            nextStep();
+        }
+        
+        // ==========================================
+        // GENERATION
+        // ==========================================
+        
+            
+        // Store format for later generation
+        let generationFormat = null;
+        
+        function toggleSubscriptionModal() {
+            const modal = document.getElementById('subscription-modal');
+            modal.classList.toggle('hidden');
+        }
+        
+        async function generateDocument(format) {
+            if (!document.getElementById('confirm-data').checked) {
+                showToast('Подтвердите достоверность данных', 'warning');
+                return;
+            }
+            // Store format and show subscription modal. Allow this for unauthenticated users —
+            // subscription in Telegram is used to grant free access.
+            generationFormat = format;
+            toggleSubscriptionModal();
+        }
+        
+        async function proceedWithGeneration() {
+            const format = generationFormat;
+            if (!format) return;
+            // Check limits before generation
+            const isPro = currentUser?.proStatus === true;
+            const usedCount = currentUser?.generationCount || 0;
+            if (!isPro && usedCount >= 2) {
+                showToast('Вы использовали 2 из 2 бесплатных генераций. Получите PRO для безлимитного доступа.', 'warning');
+                setTimeout(() => showSection('pricing'), 3000);
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/generate`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        // Include auth header only if available
+                        ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {})
+                    },
+                    body: JSON.stringify({ claimData, format })
+                });
+                
+                if (response.status === 401 || response.status === 403) {
+                    const data = await response.json();
+                    // Do not auto-close the subscription modal — inform the user
+                    showToast(data.message || 'Требуется доступ', 'warning');
+                    if (data.redirectToPricing) setTimeout(() => showSection('pricing'), 3000);
+                    return;
+                }
+                
+                if (!response.ok) throw new Error('Generation failed');
+                
+                // Update local count
+                if (!isPro && currentUser) {
+                    currentUser.generationCount = (currentUser.generationCount || 0) + 1;
+                    updateUIForUser();
+                }
+                
+                // Download file
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `pretension_${Date.now()}.${format}`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+                
+                showToast('Документ успешно создан!', 'success');
+                // Keep subscription modal open (user requested it to remain).
+                // Do not clear claimData — user can generate again or close manually.
+                
+            } catch (error) {
+                console.error('Generation error:', error);
+                showToast('Ошибка генерации документа', 'error');
+            }
+        }
+        
+        function showPreview() {
+            // Build preview text locally
+            const text = buildPreviewText();
+            document.getElementById('preview-text').textContent = text;
+            document.getElementById('preview-container').classList.remove('hidden');
+            document.getElementById('preview-container').scrollIntoView({ behavior: 'smooth' });
+        }
+        
+        function buildPreviewText() {
+            // Simplified preview generation
+            return `ДОСУДЕБНАЯ ПРЕТЕНЗИЯ
+${claimData.mode === 'collective' ? '(коллективная)' : ''}
+
+1. РЕКВИЗИТЫ ОТВЕТЧИКА
+${claimData.employer.name}
+Адрес: ${claimData.employer.address}
+
+2. РЕКВИЗИТЫ ЗАЯВИТЕЛЯ${claimData.mode === 'collective' ? 'ЕЙ' : ''}
+${claimData.workers.map(w => w.name).join('\n')}
+
+... (полный текст будет в скачанном документе)`;
+        }
+        
+        // ==========================================
+        // UTILITIES
+        // ==========================================
+        
+        function nextStep() {
+            if (currentStep < 7) {
+                document.getElementById(`step-${currentStep}`).classList.add('section-hidden');
+                currentStep++;
+                document.getElementById(`step-${currentStep}`).classList.remove('section-hidden');
+                updateProgress();
+            }
+        }
+        
+        function prevStep() {
+            if (currentStep > 1) {
+                document.getElementById(`step-${currentStep}`).classList.add('section-hidden');
+                currentStep--;
+                document.getElementById(`step-${currentStep}`).classList.remove('section-hidden');
+                updateProgress();
+            }
+        }
+        
+        function updateProgress() {
+            const percent = (currentStep / 7) * 100;
+            document.getElementById('progress-bar').style.width = `${percent}%`;
+            document.getElementById('step-label').textContent = `Шаг ${currentStep} из 7`;
+            document.getElementById('progress-percent').textContent = `${Math.round(percent)}%`;
+            
+            document.querySelectorAll('.step-indicator').forEach((el, idx) => {
+                const stepNum = idx + 1;
+                el.classList.remove('step-active', 'step-completed');
+                if (stepNum === currentStep) {
+                    el.classList.add('step-active');
+                } else if (stepNum < currentStep) {
+                    el.classList.add('step-completed');
+                    el.innerHTML = '<i class="fa-solid fa-check"></i>';
+                } else {
+                    el.textContent = stepNum;
+                }
+            });
+        }
+        
+        function resetAllData() {
+            claimData = {
+                type: '',
+                mode: 'individual',
+                workers: [],
+                employer: {},
+                circumstances: {},
+                evidence: [],
+                witness: null
+            };
+            currentStep = 1;
+            
+            document.querySelectorAll('input, textarea').forEach(el => {
+                if (el.type === 'checkbox') el.checked = false;
+                else el.value = '';
+            });
+            
+            document.getElementById('workers-container').innerHTML = '';
+            document.getElementById('preview-container').classList.add('hidden');
+            
+            addWorker();
+            setMode('individual');
+            
+            document.querySelectorAll('.step-content').forEach((el, idx) => {
+                if (idx === 0) el.classList.remove('section-hidden');
+                else el.classList.add('section-hidden');
+            });
+            
+            updateProgress();
+            showToast('Данные очищены');
+        }
+        
+        // ==========================================
+        // FREE ACCESS MANAGEMENT
+        // ==========================================
+        
+        function toggleFreeModal() {
+            const modal = document.getElementById('free-modal');
+            modal.classList.toggle('hidden');
+        }
+        
+        function getFreeAccess() {
+            if (!currentUser) {
+                showToast('Псначала нужна регистрация через Telegram', 'warning');
+                initTelegramAuth();
+                return;
+            }
+            
+            // Show free access modal with subscription instructions
+            toggleFreeModal();
+        }
+        
+        function activateFreeAccess() {
+            if (!currentUser) {
+                showToast('Не авторизованы', 'error');
+                return;
+            }
+            
+            // Mark user as having free access and set to generator
+            currentUser.freeAccessActive = true;
+            toggleFreeModal();
+            showToast('Доступ активирован! Наять с генератора', 'success');
+            showSection('generator');
+        }
+        
+        // ==========================================
+        // PRO MANAGEMENT
+        // ==========================================
+        
+        function toggleProModal() {
+            const modal = document.getElementById('pro-modal');
+            modal.classList.toggle('hidden');
+        }
+        
+        function buyPro() {
+            if (!currentUser) {
+                showToast('Сначала войдите через Telegram', 'warning');
+                return;
+            }
+
+            window.location.href = "https://YOUR_PAYMENT_LINK";
+        }        
+        function showToast(message, type = 'success', duration = 3000) {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast toast-${type}`;
+            toast.innerHTML = `<div class="flex items-center gap-3"><i class="fa-solid ${type === 'success' ? 'fa-check-circle' : type === 'error' ? 'fa-circle-xmark' : 'fa-triangle-exclamation'}"></i><span>${message}</span></div>`;
+            container.appendChild(toast);
+            setTimeout(() => toast.classList.add('show'), 100);
+            setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 300); }, duration);
+        }
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            addWorker();
+            
+            // Check for existing auth
+            const savedToken = localStorage.getItem('legalpro_token');
+            if (savedToken) {
+                authToken = savedToken;
+                // Validate token and get user data
+                fetch(`${API_BASE}/api/auth/validate`, {
+                    headers: { 'Authorization': `Bearer ${authToken}` }
+                })
+                .then(res => res.json())
+                .then(data => {
+                    if (data.user) {
+                        currentUser = data.user;
+                        updateUIForUser();
+                    }
+                })
+                .catch(() => {
+                    localStorage.removeItem('legalpro_token');
+                });
+            }
+        });
+    </script>
+</body>
+</html>
