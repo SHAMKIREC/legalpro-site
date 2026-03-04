@@ -61,51 +61,65 @@
 </head>
 <body class="antialiased">
 
-    <!-- API Configuration -->
-    <script>
-        const API_BASE = 'https://legalpro-backend-production.up.railway.app';
-            ? 'http://localhost:5555' 
-            : 'https://api.legalpro.ru';
-        
-        let currentUser = null;
-        let authToken = localStorage.getItem('legalpro_token') || null;
-        let currentStep = 1;
-        let claimData = {
-            type: '',
-            mode: 'individual',
-            workers: [],
-            employer: {},
-            circumstances: {},
-            evidence: [],
-            witness: null
-        };
+ <!-- API Configuration -->
+<script>
 
-        if (authToken) {
+const API_BASE = "https://legalpro-backend-production.up.railway.app";
+
+let currentUser = null;
+let authToken = localStorage.getItem("legalpro_token") || null;
+let currentStep = 1;
+
+let claimData = {
+    type: "",
+    mode: "individual",
+    workers: [],
+    employer: {},
+    circumstances: {},
+    evidence: [],
+    witness: null
+};
+
+if (authToken) {
+
     fetch(`${API_BASE}/api/auth/validate`, {
-        method: 'GET',
+        method: "GET",
         headers: {
-            'Authorization': `Bearer ${authToken}`
+            "Authorization": `Bearer ${authToken}`
         }
     })
     .then(res => {
-        if (!res.ok) throw new Error('Invalid token');
+        if (!res.ok) throw new Error("Invalid token");
         return res.json();
     })
     .then(data => {
+
         if (data && data.user) {
+
             currentUser = data.user;
-            updateUIForUser();
+
+            if (typeof updateUIForUser === "function") {
+                updateUIForUser();
+            }
+
         } else {
-            localStorage.removeItem('legalpro_token');
+
+            localStorage.removeItem("legalpro_token");
             authToken = null;
+
         }
+
     })
     .catch(() => {
-        localStorage.removeItem('legalpro_token');
+
+        localStorage.removeItem("legalpro_token");
         authToken = null;
+
     });
+
 }
-    </script>
+
+</script>
 
     <!-- Navigation -->
     <nav class="fixed top-0 left-0 w-full z-50 glass-strong">
