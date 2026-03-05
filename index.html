@@ -1392,7 +1392,7 @@ ${claimData.workers.map(w => w.name).join('\n')}
         
         function getFreeAccess() {
             if (!currentUser) {
-                showToast('Псначала нужна регистрация через Telegram', 'warning');
+                showToast('Сначала нужна регистрация через Telegram', 'warning');
                 initTelegramAuth();
                 return;
             }
