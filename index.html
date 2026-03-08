@@ -66,21 +66,41 @@
 
 window.API_BASE = "https://legalpro-backend-production.up.railway.app";
 // ===== ОБРАБОТКА ПАРАМЕТРОВ URL =====
-(function() {
-    const params = new URLSearchParams(window.location.search);
-    const token = params.get('token');
-    if (token) {
-        localStorage.setItem('legalpro_token', token);
-        const newUrl = window.location.pathname + window.location.hash;
-        window.history.replaceState({}, document.title, newUrl);
-        window.location.reload();
+(function () {
+
+const params = new URLSearchParams(window.location.search);
+const token = params.get('token');
+
+if (token) {
+
+    // сохраняем токен
+    localStorage.setItem('legalpro_token', token);
+
+    // обновляем глобальную переменную авторизации
+    if (typeof authToken !== "undefined") {
+        authToken = token;
     }
-    const error = params.get('error');
-    if (error === 'subscribe') {
-        alert('❌ Чтобы пользоваться сервисом, подпишитесь на канал @LegalProSupport и войдите снова.');
-    } else if (error === 'server') {
-        alert('❌ Ошибка сервера. Попробуйте позже.');
-    }
+
+    // очищаем URL от параметров
+    const newUrl = window.location.pathname + window.location.hash;
+    window.history.replaceState({}, document.title, newUrl);
+
+}
+
+const error = params.get('error');
+
+if (error === 'subscribe') {
+
+    alert('❌ Чтобы пользоваться сервисом, подпишитесь на канал @LegalProSupport и войдите снова.');
+
+}
+
+else if (error === 'server') {
+
+    alert('❌ Ошибка сервера. Попробуйте позже.');
+
+}
+
 })();
 
 let currentUser = null;
