@@ -65,6 +65,23 @@
 <script>
 
 window.API_BASE = "https://legalpro-backend-production.up.railway.app";
+// ===== ОБРАБОТКА ПАРАМЕТРОВ URL =====
+(function() {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('token');
+    if (token) {
+        localStorage.setItem('legalpro_token', token);
+        const newUrl = window.location.pathname + window.location.hash;
+        window.history.replaceState({}, document.title, newUrl);
+        window.location.reload();
+    }
+    const error = params.get('error');
+    if (error === 'subscribe') {
+        alert('❌ Чтобы пользоваться сервисом, подпишитесь на канал @LegalProSupport и войдите снова.');
+    } else if (error === 'server') {
+        alert('❌ Ошибка сервера. Попробуйте позже.');
+    }
+})();
 
 let currentUser = null;
 let authToken = localStorage.getItem("legalpro_token") || null;
@@ -79,46 +96,31 @@ let claimData = {
     evidence: [],
     witness: null
 };
+let isGenerating = false;
+let evidenceInitialized = false;
 
-if (authToken) {
-
-    fetch(`${API_BASE}/api/auth/validate`, {
-        method: "GET",
-        headers: {
-            "Authorization": `Bearer ${authToken}`
-        }
-    })
-    .then(res => {
-        if (!res.ok) throw new Error("Invalid token");
-        return res.json();
-    })
-    .then(data => {
-
-        if (data && data.user) {
-
-            currentUser = data.user;
-
-            if (typeof updateUIForUser === "function") {
-                updateUIForUser();
-            }
-
-        } else {
-
-            localStorage.removeItem("legalpro_token");
-            authToken = null;
-
-        }
-
-    })
-    .catch(() => {
-
-        localStorage.removeItem("legalpro_token");
-        authToken = null;
-
-    });
-
+// ===== ВАЛИДАЦИЯ =====
+function validateRussianPhone(phone) {
+    if (!phone) return true;
+    const cleaned = phone.replace(/\D/g, '');
+    return /^7\d{10}$/.test(cleaned) || /^8\d{10}$/.test(cleaned);
 }
+function validateEmail(email) {
+    if (!email) return true;
+    const regex = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+    return regex.test(email);
+}
+function validateFullName(name) {
+    if (!name) return false;
 
+    const regex = /^[А-Яа-яЁёA-Za-z\s\-]+$/;
+
+    if (!regex.test(name)) return false;
+
+    const parts = name.trim().split(/\s+/);
+
+    return parts.length >= 2;
+}
 </script>
 
     <!-- Navigation -->
@@ -144,14 +146,16 @@ if (authToken) {
                     <button onclick="toggleProModal()" class="text-amber-400 hover:text-amber-300 font-medium transition-colors text-sm">
                         <i class="fa-solid fa-crown mr-1"></i>PRO
                     </button>
-                    <script async 
-                     src="https://telegram.org/js/telegram-widget.js?22"
-                     data-telegram-login="LegalProServiceBot"
-                     data-size="large"
-                     data-userpic="false"
-                     data-auth-url="https://legalpro-backend-production.up.railway.app/api/auth/telegram-login"
-                     data-request-access="write">
-                     </script>
+                   <div id="telegram-login-widget">
+    <script async 
+     src="https://telegram.org/js/telegram-widget.js?22"
+     data-telegram-login="LegalProServiceBot"
+     data-size="large"
+     data-userpic="false"
+     data-auth-url="https://legalpro-backend-production.up.railway.app/api/auth/telegram-login"
+     data-request-access="write">
+    </script>
+</div>
                 </div>
             </div>
         </div>
@@ -254,209 +258,225 @@ if (authToken) {
                 <div class="step-indicator w-10 h-10 rounded-full border-2 border-gray-600 flex items-center justify-center text-sm font-bold text-gray-400" data-step="7">7</div>
             </div>
             
-            <!-- Step 1: Category Selection -->
-            <div id="step-1" class="step-content">
-                <div class="glass rounded-2xl p-8 border border-white/10">
-                    <h3 class="text-xl font-bold text-white mb-2">Выберите категорию</h3>
-                    <p class="text-gray-400 text-sm mb-6">Мы подберем подходящие статьи закона автоматически</p>
-                    
-                    <div class="grid md:grid-cols-2 gap-4">
-                        <div onclick="selectCategory('salary')" class="category-card glass rounded-xl p-6 border border-white/10" data-category="salary">
-                            <div class="flex items-start gap-4">
-                                <div class="w-12 h-12 rounded-lg bg-cyan-500/20 flex items-center justify-center text-cyan-400 text-xl flex-shrink-0">
-                                    <i class="fa-solid fa-money-bill-wave"></i>
-                                </div>
-                                <div>
-                                    <h4 class="font-semibold text-white mb-1">Невыплата зарплаты</h4>
-                                    <p class="text-xs text-gray-400">Невыплата заработной платы, задержки, частичные выплаты.</p>
-                                </div>
-                            </div>
-                        </div>
+<!-- Step 1: Category Selection -->
+<div id="step-1" class="step-content">
+    <div class="glass rounded-2xl p-8 border border-white/10">
+        <h3 class="text-xl font-bold text-white mb-2">Выберите категорию</h3>
+        <p class="text-gray-400 text-sm mb-6">Мы подберем подходящие статьи закона автоматически</p>
 
-                        <div onclick="selectCategory('unofficial')" class="category-card glass rounded-xl p-6 border border-white/10" data-category="unofficial">
-                            <div class="flex items-start gap-4">
-                                <div class="w-12 h-12 rounded-lg bg-rose-500/20 flex items-center justify-center text-rose-400 text-xl flex-shrink-0">
-                                    <i class="fa-solid fa-user-xmark"></i>
-                                </div>
-                                <div>
-                                    <h4 class="font-semibold text-white mb-1">Работа без оформления</h4>
-                                    <p class="text-xs text-gray-400">Фактическая работа без трудового договора и оформления.</p>
-                                </div>
-                            </div>
-                        </div>
+        <div class="grid md:grid-cols-2 gap-4">
 
-                        <div onclick="selectCategory('dismissal')" class="category-card glass rounded-xl p-6 border border-white/10" data-category="dismissal">
-                            <div class="flex items-start gap-4">
-                                <div class="w-12 h-12 rounded-lg bg-purple-500/20 flex items-center justify-center text-purple-400 text-xl flex-shrink-0">
-                                    <i class="fa-solid fa-door-open"></i>
-                                </div>
-                                <div>
-                                    <h4 class="font-semibold text-white mb-1">Расчет при увольнении</h4>
-                                    <p class="text-sm text-gray-400">Отсутствие расчета при увольнении. Ст. 140 ТК РФ.</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div onclick="selectCategory('zpp_product')" class="category-card glass rounded-xl p-6 border border-white/10" data-category="zpp_product">
-                            <div class="flex items-start gap-4">
-                                <div class="w-12 h-12 rounded-lg bg-orange-500/20 flex items-center justify-center text-orange-400 text-xl flex-shrink-0">
-                                    <i class="fa-solid fa-box-open"></i>
-                                </div>
-                                <div>
-                                    <h4 class="font-semibold text-white mb-1">Некачественный товар</h4>
-                                    <p class="text-sm text-gray-400">Возврат товара, брак. ЗоЗПП ст. 18-23.</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div onclick="selectCategory('zpp_service')" class="category-card glass rounded-xl p-6 border border-white/10" data-category="zpp_service">
-                            <div class="flex items-start gap-4">
-                                <div class="w-12 h-12 rounded-lg bg-blue-500/20 flex items-center justify-center text-blue-400 text-xl flex-shrink-0">
-                                    <i class="fa-solid fa-screwdriver-wrench"></i>
-                                </div>
-                                <div>
-                                    <h4 class="font-semibold text-white mb-1">Некачественные услуги</h4>
-                                    <p class="text-sm text-gray-400">Услуги не в срок, не в полном объеме. ЗоЗПП.</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div onclick="selectCategory('infoproduct')" class="category-card glass rounded-xl p-6 border border-white/10" data-category="infoproduct">
-                            <div class="flex items-start gap-4">
-                                <div class="w-12 h-12 rounded-lg bg-pink-500/20 flex items-center justify-center text-pink-400 text-xl flex-shrink-0">
-                                    <i class="fa-solid fa-graduation-cap"></i>
-                                </div>
-                                <div>
-                                    <h4 class="font-semibold text-white mb-1">Онлайн-курсы / инфопродукты</h4>
-                                    <p class="text-sm text-gray-400">Возврат за некачественный курс. Ст. 32 ЗоЗПП.</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div onclick="selectCategory('loan')" class="category-card glass rounded-xl p-6 border border-white/10" data-category="loan">
-                            <div class="flex items-start gap-4">
-                                <div class="w-12 h-12 rounded-lg bg-green-500/20 flex items-center justify-center text-green-400 text-xl flex-shrink-0">
-                                    <i class="fa-solid fa-hand-holding-dollar"></i>
-                                </div>
-                                <div>
-                                    <h4 class="font-semibold text-white mb-1">Долг по расписке</h4>
-                                    <p class="text-sm text-gray-400">Возврат долга по расписке или договору займа.</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div onclick="selectCategory('contract')" class="category-card glass rounded-xl p-6 border border-white/10" data-category="contract">
-                            <div class="flex items-start gap-4">
-                                <div class="w-12 h-12 rounded-lg bg-gray-500/20 flex items-center justify-center text-gray-400 text-xl flex-shrink-0">
-                                    <i class="fa-solid fa-file-signature"></i>
-                                </div>
-                                <div>
-                                    <h4 class="font-semibold text-white mb-1">Универсальная претензия</h4>
-                                    <p class="text-sm text-gray-400">Любая ситуация с нарушением договора.</p>
-                                </div>
-                            </div>
-                        </div>
+            <div onclick="selectCategory('salary')" class="category-card glass rounded-xl p-6 border border-white/10" data-category="salary">
+                <div class="flex items-start gap-4">
+                    <div class="w-12 h-12 rounded-lg bg-cyan-500/20 flex items-center justify-center text-cyan-400 text-xl flex-shrink-0">
+                        <i class="fa-solid fa-money-bill-wave"></i>
                     </div>
-
-                    <!-- SUBSCRIPTION REQUIRED MODAL (kept outside category items) -->
-                    <div id="subscription-modal" class="modal-backdrop hidden">
-                        <div class="modal-content max-w-md">
-                            <button class="modal-close" onclick="toggleSubscriptionModal()">×</button>
-                            <h2 class="font-display text-2xl font-bold text-white mb-2">🔔 Подписка в Telegram — бесплатный доступ</h2>
-                            <p class="text-gray-300 text-sm mb-4">Чтобы пользоваться бесплатными генерациями, подпишитесь на наш Telegram-канал. Откройте канал в новом окне, подпишитесь, затем вернитесь и нажмите кнопку «Я подписался» — документ начнёт скачивание. Окно останется открытым, данные не будут удалены.</p>
-
-                            <div class="space-y-4">
-                                <div class="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
-                                    <p class="text-blue-400 font-semibold mb-2">📢 Канал: <span class="text-white">Готовим вкусно и просто!</span></p>
-                                    <p class="text-gray-400 text-xs mb-3">Нажмите кнопку ниже, подпишитесь в Telegram, затем вернитесь сюда и нажмите «Я подписался».</p>
-                                    <a href="https://t.me/+aoEZQHaThEAwZTQy" target="_blank" class="block w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-center rounded-lg transition-colors text-sm">
-                                        <i class="fa-brands fa-telegram mr-2"></i>Открыть канал в Telegram
-                                    </a>
-                                </div>
-
-                                <div class="p-3 rounded-lg bg-green-500/10 border border-green-500/20">
-                                    <p class="text-green-400 text-xs font-semibold">✓ После подписки вернитесь и нажмите кнопку «Я подписался» — окно останется открытым.</p>
-                                </div>
-
-                                <button id="subscription-confirm-btn" onclick="proceedWithGeneration()" class="w-full py-3 btn-primary rounded-xl font-semibold text-white">
-                                    ✔ Я подписался — скачать документ
-                                </button>
-
-                                <button onclick="toggleSubscriptionModal()" class="w-full py-3 glass rounded-xl font-semibold text-white hover:bg-white/10 transition-colors border border-white/10">Закрыть</button>
-                            </div>
-                        </div>
+                    <div>
+                        <h4 class="font-semibold text-white mb-1">Невыплата зарплаты</h4>
+                        <p class="text-xs text-gray-400">Невыплата заработной платы, задержки, частичные выплаты.</p>
                     </div>
                 </div>
             </div>
-            
-            <!-- Step 2: Mode Selection -->
-            <div id="step-2" class="step-content section-hidden">
-                <div class="glass rounded-2xl p-8 border border-white/10">
-                    <h3 class="text-xl font-bold text-white mb-6">Формат претензии</h3>
-                    
-                    <div class="grid md:grid-cols-2 gap-4 mb-6">
-                        <button onclick="setMode('individual')" class="mode-btn p-6 rounded-xl border-2 border-cyan-500 bg-cyan-500/10 text-left" id="mode-individual">
-                            <div class="w-12 h-12 rounded-lg bg-cyan-500/20 flex items-center justify-center text-cyan-400 text-xl mb-4">
-                                <i class="fa-solid fa-user"></i>
-                            </div>
-                            <h4 class="font-semibold text-white mb-1">Индивидуальная</h4>
-                            <p class="text-sm text-gray-400">Один заявитель — один ответчик</p>
-                        </button>
-                        
-                        <button onclick="setMode('collective')" class="mode-btn p-6 rounded-xl border border-white/10 hover:border-cyan-500/50 text-left opacity-50" id="mode-collective">
-                            <div class="w-12 h-12 rounded-lg bg-purple-500/20 flex items-center justify-center text-purple-400 text-xl mb-4">
-                                <i class="fa-solid fa-users"></i>
-                            </div>
-                            <h4 class="font-semibold text-white mb-1">Коллективная</h4>
-                            <p class="text-sm text-gray-400">Несколько заявителей</p>
-                            <span class="inline-block mt-2 px-2 py-1 bg-amber-500/20 text-amber-400 text-xs rounded">Требуется PRO</span>
-                        </button>
+
+            <div onclick="selectCategory('unofficial')" class="category-card glass rounded-xl p-6 border border-white/10" data-category="unofficial">
+                <div class="flex items-start gap-4">
+                    <div class="w-12 h-12 rounded-lg bg-rose-500/20 flex items-center justify-center text-rose-400 text-xl flex-shrink-0">
+                        <i class="fa-solid fa-user-xmark"></i>
                     </div>
-                    
-                    <div class="flex gap-4">
-                        <button onclick="prevStep()" class="flex-1 py-3 glass rounded-xl font-semibold text-white hover:bg-white/10 transition-all border border-white/10">Назад</button>
-                        <button onclick="nextStep()" class="flex-1 py-3 btn-primary rounded-xl font-semibold text-white">Далее</button>
+                    <div>
+                        <h4 class="font-semibold text-white mb-1">Работа без оформления</h4>
+                        <p class="text-xs text-gray-400">Фактическая работа без трудового договора.</p>
                     </div>
                 </div>
             </div>
-            
-            <!-- Step 3: Respondent Data -->
+
+            <div onclick="selectCategory('dismissal')" class="category-card glass rounded-xl p-6 border border-white/10" data-category="dismissal">
+                <div class="flex items-start gap-4">
+                    <div class="w-12 h-12 rounded-lg bg-purple-500/20 flex items-center justify-center text-purple-400 text-xl flex-shrink-0">
+                        <i class="fa-solid fa-door-open"></i>
+                    </div>
+                    <div>
+                        <h4 class="font-semibold text-white mb-1">Расчет при увольнении</h4>
+                        <p class="text-sm text-gray-400">Отсутствие расчета при увольнении. Ст. 140 ТК РФ.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div onclick="selectCategory('zpp_product')" class="category-card glass rounded-xl p-6 border border-white/10" data-category="zpp_product">
+                <div class="flex items-start gap-4">
+                    <div class="w-12 h-12 rounded-lg bg-orange-500/20 flex items-center justify-center text-orange-400 text-xl flex-shrink-0">
+                        <i class="fa-solid fa-box-open"></i>
+                    </div>
+                    <div>
+                        <h4 class="font-semibold text-white mb-1">Некачественный товар</h4>
+                        <p class="text-sm text-gray-400">Возврат товара, брак. ЗоЗПП ст. 18-23.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div onclick="selectCategory('zpp_service')" class="category-card glass rounded-xl p-6 border border-white/10" data-category="zpp_service">
+                <div class="flex items-start gap-4">
+                    <div class="w-12 h-12 rounded-lg bg-blue-500/20 flex items-center justify-center text-blue-400 text-xl flex-shrink-0">
+                        <i class="fa-solid fa-screwdriver-wrench"></i>
+                    </div>
+                    <div>
+                        <h4 class="font-semibold text-white mb-1">Некачественные услуги</h4>
+                        <p class="text-sm text-gray-400">Услуги не в срок. ЗоЗПП.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div onclick="selectCategory('infoproduct')" class="category-card glass rounded-xl p-6 border border-white/10" data-category="infoproduct">
+                <div class="flex items-start gap-4">
+                    <div class="w-12 h-12 rounded-lg bg-pink-500/20 flex items-center justify-center text-pink-400 text-xl flex-shrink-0">
+                        <i class="fa-solid fa-graduation-cap"></i>
+                    </div>
+                    <div>
+                        <h4 class="font-semibold text-white mb-1">Онлайн-курсы</h4>
+                        <p class="text-sm text-gray-400">Возврат за некачественный курс.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div onclick="selectCategory('loan')" class="category-card glass rounded-xl p-6 border border-white/10" data-category="loan">
+                <div class="flex items-start gap-4">
+                    <div class="w-12 h-12 rounded-lg bg-green-500/20 flex items-center justify-center text-green-400 text-xl flex-shrink-0">
+                        <i class="fa-solid fa-hand-holding-dollar"></i>
+                    </div>
+                    <div>
+                        <h4 class="font-semibold text-white mb-1">Долг по расписке</h4>
+                        <p class="text-sm text-gray-400">Возврат долга по расписке.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div onclick="selectCategory('contract')" class="category-card glass rounded-xl p-6 border border-white/10" data-category="contract">
+                <div class="flex items-start gap-4">
+                    <div class="w-12 h-12 rounded-lg bg-gray-500/20 flex items-center justify-center text-gray-400 text-xl flex-shrink-0">
+                        <i class="fa-solid fa-file-signature"></i>
+                    </div>
+                    <div>
+                        <h4 class="font-semibold text-white mb-1">Универсальная претензия</h4>
+                        <p class="text-sm text-gray-400">Любая ситуация с нарушением договора.</p>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+ <!-- ВОТ ЭТУ КНОПКУ МЫ ДОБАВИЛИ -->
+ <div class="flex gap-4 mt-8">
+<button id="next-category-btn" onclick="nextStep()" disabled
+class="flex-1 py-3 btn-primary rounded-xl font-semibold text-white">
+Далее
+</button>
+</div>
+
+</div>
+</div>
+
+<!-- Step 2: Mode Selection -->
+<div id="step-2" class="step-content section-hidden">
+
+    <div class="glass rounded-2xl p-8 border border-white/10">
+        <h3 class="text-xl font-bold text-white mb-6">Формат претензии</h3>
+
+        <div class="grid md:grid-cols-2 gap-4 mb-6">
+
+            <button onclick="setMode('individual')" class="mode-btn p-6 rounded-xl border-2 border-cyan-500 bg-cyan-500/10 text-left" id="mode-individual">
+                <div class="w-12 h-12 rounded-lg bg-cyan-500/20 flex items-center justify-center text-cyan-400 text-xl mb-4">
+                    <i class="fa-solid fa-user"></i>
+                </div>
+                <h4 class="font-semibold text-white mb-1">Индивидуальная</h4>
+                <p class="text-sm text-gray-400">Претензия от одного заявителя</p>
+            </button>
+
+            <button onclick="setMode('collective')" class="mode-btn p-6 rounded-xl border border-white/10 hover:border-cyan-500/50 text-left opacity-50" id="mode-collective">
+                <div class="w-12 h-12 rounded-lg bg-purple-500/20 flex items-center justify-center text-purple-400 text-xl mb-4">
+                    <i class="fa-solid fa-users"></i>
+                </div>
+                <h4 class="font-semibold text-white mb-1">Коллективная</h4>
+                <p class="text-sm text-gray-400">Претензия от группы заявителей</p>
+                <span class="inline-block mt-2 px-2 py-1 bg-amber-500/20 text-amber-400 text-xs rounded">Требуется PRO</span>
+            </button>
+
+        </div>
+
+               <div class="flex gap-4">
+    <button onclick="prevStep()" class="flex-1 py-3 glass rounded-xl font-semibold text-white hover:bg-white/10 border border-white/10">Назад</button>
+    <button onclick="nextStep()" class="flex-1 py-3 btn-primary rounded-xl font-semibold text-white">Далее</button>
+</div>
+
+    </div>
+</div>
+<!-- Step 3: Respondent Data -->
             <div id="step-3" class="step-content section-hidden">
                 <div class="glass rounded-2xl p-8 border border-white/10">
                     <h3 class="text-xl font-bold text-white mb-6">Данные ответчика</h3>
                     
                     <div class="space-y-4">
                         <div>
-                            <label class="block text-sm font-medium text-gray-300 mb-2">Полное наименование / ФИО</label>
-                            <input type="text" id="resp-name" class="w-full px-4 py-3 rounded-xl input-field text-white" placeholder="ООО «Компания» или Иванов Иван Иванович">
-                        </div>
-                        
-                        <div>
-                            <label class="block text-sm font-medium text-gray-300 mb-2">Юридический адрес / Адрес регистрации</label>
-                            <input type="text" id="resp-address" class="w-full px-4 py-3 rounded-xl input-field text-white" placeholder="г. Москва, ул. Примерная, д. 1">
-                        </div>
-                        
-                        <div class="grid md:grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-300 mb-2">Должность руководителя</label>
-                                <input type="text" id="resp-position" class="w-full px-4 py-3 rounded-xl input-field text-white" placeholder="Генеральному директору">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-300 mb-2">ФИО руководителя</label>
-                                <input type="text" id="resp-ceo" class="w-full px-4 py-3 rounded-xl input-field text-white" placeholder="Иванову И.И.">
-                            </div>
-                        </div>
-                        
-                        <div class="grid md:grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-sm font-medium text-gray-300 mb-2">ИНН (если известен)</label>
-                                <input type="text" id="resp-inn" class="w-full px-4 py-3 rounded-xl input-field text-white" placeholder="7701234567">
-                            </div>
-                            <div>
-                                <label class="block text-sm font-medium text-gray-300 mb-2">ОГРН (если известен)</label>
-                                <input type="text" id="resp-ogrn" class="w-full px-4 py-3 rounded-xl input-field text-white" placeholder="1157746123456">
-                            </div>
-                        </div>
+<label class="block text-sm font-medium text-gray-300 mb-2">
+Наименование компании / ФИО
+</label>
+
+<input
+type="text"
+id="resp-name"
+oninput="searchCompanyByName()"
+class="w-full px-4 py-3 rounded-xl input-field text-white"
+placeholder="ООО «Компания» или Иванов Иван Иванович">
+
+<div
+id="company-suggestions"
+class="hidden mt-2 bg-black/80 border border-white/10 rounded-xl max-h-48 overflow-y-auto text-sm">
+</div>
+
+</div>
+
+<div>
+<label class="block text-sm font-medium text-gray-300 mb-2">
+Юридический адрес / адрес регистрации
+</label>
+
+<input type="text"
+id="resp-address"
+class="w-full px-4 py-3 rounded-xl input-field text-white"
+placeholder="г. Москва, ул. Ленина, д. 10">
+</div>
+
+
+<div class="grid md:grid-cols-2 gap-4">
+
+<div>
+<label class="block text-sm font-medium text-gray-300 mb-2">
+ИНН (если известен)
+</label>
+
+<input 
+type="text"
+id="resp-inn"
+maxlength="12"
+inputmode="numeric"
+pattern="[0-9]*"
+oninput="fetchCompanyByInn()"
+class="w-full px-4 py-3 rounded-xl input-field text-white"
+placeholder="7701234567">
+<p class="text-xs text-gray-500 mt-1">Можно ввести ИНН — данные компании подставятся автоматически</p>
+</div>
+
+
+<div>
+<label class="block text-sm font-medium text-gray-300 mb-2">
+ОГРН / ОГРНИП (если известен)
+</label>
+
+<input type="text"
+id="resp-ogrn"
+class="w-full px-4 py-3 rounded-xl input-field text-white"
+placeholder="1157746123456">
+</div>
+
+</div>                        </div>
                     </div>
                     
                     <div class="flex gap-4 mt-8">
@@ -576,7 +596,7 @@ if (authToken) {
                         <!-- Description -->
                         <div>
                             <label class="block text-sm font-medium text-gray-300 mb-2">Дополнительные обстоятельства</label>
-                            <textarea id="description" rows="4" class="w-full px-4 py-3 rounded-xl input-field text-white resize-none" placeholder="Опишите ситуацию подробнее..."></textarea>
+                            <textarea id="description" rows="4" class="w-full px-4 py-3 rounded-xl input-field text-white resize-none" placeholder="Опишите ситуацию подробнее..." maxlength="2000"></textarea>
                         </div>
                     </div>
                     
@@ -660,52 +680,51 @@ if (authToken) {
                 </div>
             </div>
             
-            <!-- Step 7: Review & Generate -->
-            <div id="step-7" class="step-content section-hidden">
-                <div class="glass rounded-2xl p-8 border border-white/10">
-                    <h3 class="text-xl font-bold text-white mb-6">Проверка и генерация</h3>
-                    
-                    <div class="p-4 rounded-xl bg-cyan-500/10 border border-cyan-500/20 mb-6">
-                        <label class="flex items-start gap-3 cursor-pointer">
-                            <input type="checkbox" id="confirm-data" class="w-5 h-5 rounded border-gray-600 text-cyan-500 mt-0.5">
-                            <div>
-                                <span class="text-white block font-medium">Подтверждаю достоверность данных</span>
-                                <span class="text-gray-400 text-sm">Я понимаю, что предоставление ложных сведений может повлечь ответственность. Все данные соответствуют действительности.</span>
-                            </div>
-                        </label>
-                    </div>
-                    
-                    <div id="limit-warning" class="hidden p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 mb-6">
-                        <div class="flex items-center gap-3 text-amber-400">
-                            <i class="fa-solid fa-triangle-exclamation"></i>
-                            <span>Использовано <span id="used-count">0</span> из 2 бесплатных генераций</span>
-                        </div>
-                    </div>
-                    
-                    <div class="flex flex-col gap-3">
-                        <button onclick="showPreview()" class="w-full py-3 glass rounded-xl font-semibold text-white hover:bg-white/10 transition-all border border-white/10">
-                            <i class="fa-solid fa-eye mr-2"></i>Предпросмотр текста
-                        </button>
-                        
-                        <button onclick="generateDocument('pdf')" class="w-full py-4 btn-primary rounded-xl font-semibold text-white text-lg">
-                            <i class="fa-solid fa-file-pdf mr-2"></i>Скачать PDF
-                        </button>
-                        
-                        <button onclick="generateDocument('docx')" id="docx-btn" class="w-full py-4 btn-gold rounded-xl font-semibold text-gray-900 text-lg hidden">
-                            <i class="fa-solid fa-file-word mr-2"></i>Скачать DOCX (PRO)
-                        </button>
-                        
-                        <button onclick="resetAllData()" class="w-full py-3 glass rounded-xl font-semibold text-white hover:bg-white/10 transition-all border border-white/10">
-                            <i class="fa-solid fa-rotate-left mr-2"></i>Начать заново
-                        </button>
-                    </div>
-                    
-                    <div id="preview-container" class="mt-6 p-4 rounded-xl bg-gray-900/50 border border-white/5 hidden max-h-96 overflow-y-auto">
-                        <pre id="preview-text" class="whitespace-pre-wrap text-sm text-gray-300 font-mono leading-relaxed"></pre>
-                    </div>
+         <!-- Step 7: Review & Generate -->
+<div id="step-7" class="step-content section-hidden">
+    <div class="glass rounded-2xl p-8 border border-white/10">
+        <h3 class="text-xl font-bold text-white mb-6">Проверка и генерация</h3>
+        
+        <div class="p-4 rounded-xl bg-cyan-500/10 border border-cyan-500/20 mb-6">
+            <label class="flex items-start gap-3 cursor-pointer">
+                <input type="checkbox" id="confirm-data" class="w-5 h-5 rounded border-gray-600 text-cyan-500 mt-0.5">
+                <div>
+                    <span class="text-white block font-medium">Подтверждаю достоверность данных</span>
+                    <span class="text-gray-400 text-sm">Я понимаю, что предоставление ложных сведений может повлечь ответственность. Все данные соответствуют действительности.</span>
                 </div>
+            </label>
+        </div>
+        
+        <div id="limit-warning" class="hidden p-4 rounded-xl bg-amber-500/10 border border-amber-500/20 mb-6">
+            <div class="flex items-center gap-3 text-amber-400">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                <span>Использовано <span id="used-count">0</span> из 2 бесплатных генераций</span>
             </div>
         </div>
+        
+        <div class="flex flex-col gap-3">
+            <button onclick="showPreview()" class="w-full py-3 glass rounded-xl font-semibold text-white hover:bg-white/10 transition-all border border-white/10">
+                <i class="fa-solid fa-eye mr-2"></i>Предпросмотр текста
+            </button>
+            
+            <button onclick="generateDocument('pdf')" class="w-full py-4 btn-primary rounded-xl font-semibold text-white text-lg">
+                <i class="fa-solid fa-file-pdf mr-2"></i>Скачать PDF
+            </button>
+            
+            <button onclick="generateDocument('docx')" id="docx-btn" class="w-full py-4 btn-gold rounded-xl font-semibold text-gray-900 text-lg hidden">
+                <i class="fa-solid fa-file-word mr-2"></i>Скачать DOCX (PRO)
+            </button>
+            
+            <button onclick="resetAllData()" class="w-full py-3 glass rounded-xl font-semibold text-white hover:bg-white/10 transition-all border border-white/10">
+                <i class="fa-solid fa-rotate-left mr-2"></i>Начать заново
+            </button>
+        </div>
+        
+        <div id="preview-container" class="mt-6 p-4 rounded-xl bg-gray-900/50 border border-white/5 hidden max-h-96 overflow-y-auto">
+            <pre id="preview-text" class="whitespace-pre-wrap text-sm text-gray-300 font-mono leading-relaxed"></pre>
+        </div>
+    </div>
+</div>
     </section>
 
     <!-- PRICING SECTION -->
@@ -736,7 +755,7 @@ if (authToken) {
                         🎁 Сюрпризы для подписчиков Telegram-канала
                     </div>
                     
-                    <button onclick="getFreeAccess()" class="w-full py-3 glass rounded-xl font-semibold text-white hover:bg-white/10 transition-all border border-white/10">Получить бесплатный доступ</button>
+                    <button onclick="handleFreeClick()" class="w-full py-3 glass rounded-xl font-semibold text-white hover:bg-white/10 transition-all border border-white/10">Получить бесплатный доступ</button>
                 </div>
                 
                 <div class="glass rounded-2xl p-8 border border-amber-500/30 relative overflow-hidden">
@@ -806,48 +825,7 @@ if (authToken) {
         </div>
     </section>
 
-    <!-- FREE ACCESS MODAL -->
-    <div id="free-modal" class="modal-backdrop hidden">
-        <div class="modal-content max-w-md">
-            <button class="modal-close" onclick="toggleFreeModal()">×</button>
-            <h2 class="font-display text-2xl font-bold text-white mb-4">Получить бесплатный доступ</h2>
-            
-            <div class="space-y-4">
-                <div class="p-3 rounded-lg bg-green-500/10 border border-green-500/20">
-                    <p class="text-green-400 text-sm font-semibold">✔ 2 PDF-документа в месяц</p>
-                    <p class="text-gray-400 text-xs mt-1">Подпишитесь на наш Telegram-канал и получите доступ</p>
-                </div>
-                
-                <div class="p-4 rounded-lg bg-blue-500/10 border border-blue-500/20">
-                    <p class="text-white font-semibold mb-2">Канал: <span class="text-blue-400">Готовим вкусно и просто!</span></p>
-                    <p class="text-gray-400 text-sm mb-3">Нажмите кнопку ниже, чтобы перейти на канал и подписаться:</p>
-                    <a href="https://t.me/+aoEZQHaThEAwZTQy" target="_blank" class="block w-full py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-center rounded-lg transition-colors text-sm">
-                        <i class="fa-brands fa-telegram mr-2"></i>Перейти на канал
-                    </a>
-                </div>
-                
-                <div class="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
-                    <p class="text-amber-300 text-sm font-semibold mb-2">👥 Контакты администраторов:</p>
-                    <div class="space-y-1">
-                        <a href="https://t.me/viktor64but" target="_blank" class="flex items-center gap-2 text-cyan-400 hover:text-cyan-300 text-sm">
-                            <i class="fa-brands fa-telegram"></i>@viktor64but
-                        </a>
-                        <a href="https://t.me/HappyEnd64" target="_blank" class="flex items-center gap-2 text-cyan-400 hover:text-cyan-300 text-sm">
-                            <i class="fa-brands fa-telegram"></i>@HappyEnd64
-                        </a>
-                    </div>
-                </div>
-                
-                <p class="text-gray-400 text-xs text-center">После подписки на канал нажмите кнопку ниже, чтобы активировать доступ</p>
-                
-                <button onclick="activateFreeAccess()" class="w-full py-3 btn-primary rounded-xl font-semibold text-white">
-                    ✔ Я подписался. Активировать доступ
-                </button>
-                
-                <button onclick="toggleFreeModal()" class="w-full py-3 glass rounded-xl font-semibold text-white hover:bg-white/10 transition-colors border border-white/10">Отменить</button>
-            </div>
-        </div>
-    </div>
+
 
     <!-- PRO INFO MODAL -->
     <div id="pro-modal" class="modal-backdrop hidden">
@@ -921,66 +899,14 @@ if (authToken) {
         // AUTH & USER MANAGEMENT
         // ==========================================
         
-        function initTelegramAuth() {
-            console.log('[AUTH] Starting authentication...');
-            
-            let authPayload;
-            
-            if (window.Telegram && Telegram.WebApp && Telegram.WebApp.initDataUnsafe && Telegram.WebApp.initDataUnsafe.user) {
-                console.log('[AUTH] Using Telegram.WebApp');
-                Telegram.WebApp.ready();
-                const user = Telegram.WebApp.initDataUnsafe.user;
-                authPayload = {
-                    telegramId: String(user.id),
-                    username: user.username || '',
-                    firstName: user.first_name || '',
-                    lastName: user.last_name || ''
-                };
-            } else {
-                console.log('[AUTH] Using browser fallback');
-                const fakeId = 'web_' + Date.now();
-                authPayload = {
-                    telegramId: fakeId,
-                    username: 'web_test',
-                    firstName: 'Web',
-                    lastName: 'User'
-                };
-            }
-            
-            console.log('[AUTH] Sending payload:', authPayload);
-            
-            fetch(`${API_BASE}/api/auth/telegram`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(authPayload)
-            })
-            .then(res => {
-                console.log('[AUTH] Response status:', res.status);
-                if (!res.ok) {
-                    return res.json().then(err => Promise.reject(err));
-                }
-                return res.json();
-            })
-            .then(data => {
-                console.log('[AUTH] Success! User:', data.user?.id, 'Token:', data.token?.substring(0, 20) + '...');
-                authToken = data.token;
-                currentUser = data.user;
-                localStorage.setItem('legalpro_token', data.token);
-                try { localStorage.setItem('legalpro_user', JSON.stringify(data.user)); } catch(e){}
-                updateUIForUser();
-                showToast('✓ Успешный вход!', 'success');
-            })
-            .catch(err => {
-                console.error('[AUTH] Error:', err);
-                showToast('✗ Ошибка: ' + (err.error || err.message || 'Проблема с сервером'), 'error');
-            });
-        }
+
         
         function updateUIForUser() {
             if (!currentUser) return;
-            
-            document.getElementById('login-btn').classList.add('hidden');
+            const widget = document.getElementById('telegram-login-widget');
+            if (widget) widget.classList.add('hidden');
             document.getElementById('user-menu').classList.remove('hidden');
+checkSubscription()
             document.getElementById('user-name').textContent = currentUser.username || currentUser.firstName;
             
             if (currentUser.proStatus) {
@@ -1001,12 +927,48 @@ if (authToken) {
             currentUser = null;
             localStorage.removeItem('legalpro_token');
             try { localStorage.removeItem('legalpro_user'); } catch(e){}
-            document.getElementById('login-btn').classList.remove('hidden');
             document.getElementById('user-menu').classList.add('hidden');
             document.getElementById('pro-indicator').classList.add('hidden');
             showToast('Вы вышли из системы');
+            const widget = document.getElementById('telegram-login-widget');
+            if (widget) widget.classList.remove('hidden');
         }
-        
+        async function checkSubscription(){
+
+if(!currentUser) return
+
+try{
+
+const response = await fetch(`${API_BASE}/api/check-subscription`,{
+method:"POST",
+headers:{
+"Content-Type":"application/json"
+},
+body:JSON.stringify({
+telegramId:currentUser.telegramId||currentUser.id})
+})
+
+const data = await response.json()
+
+if(!data.subscribed){
+
+alert("Чтобы пользоваться сервисом подпишитесь на канал @LegalProSupport")
+
+window.open("https://t.me/LegalProSupport","_blank")
+
+showSection("home")
+
+return
+
+}
+
+}catch(e){
+
+console.error("Subscription check failed")
+
+}
+
+}
         // ==========================================
         // NAVIGATION
         // ==========================================
@@ -1029,6 +991,8 @@ if (authToken) {
             }
             showSection('generator');
             currentStep = 1;
+            const nextBtn = document.getElementById('next-category-btn')
+if (nextBtn) nextBtn.disabled = true
             updateProgress();
         }
         
@@ -1037,20 +1001,20 @@ if (authToken) {
         // ==========================================
         
         function selectCategory(category) {
-            claimData.type = category;
-            
-            document.querySelectorAll('.category-card').forEach(card => {
-                card.classList.remove('selected', 'border-cyan-500', 'bg-cyan-500/10');
-            });
-            document.querySelector(`[data-category="${category}"]`).classList.add('selected', 'border-cyan-500', 'bg-cyan-500/10');
-            
-            // Show/hide labor-specific fields
-            const isLabor = ['salary', 'unofficial', 'dismissal'].includes(category);
-            document.getElementById('labor-period').style.display = isLabor ? 'block' : 'none';
-            document.getElementById('labor-details').style.display = isLabor ? 'block' : 'none';
-            
-            setTimeout(() => nextStep(), 300);
-        }
+    claimData.type = category;
+    
+    document.querySelectorAll('.category-card').forEach(card => {
+        card.classList.remove('selected', 'border-cyan-500', 'bg-cyan-500/10');
+    });
+    document.querySelector(`[data-category="${category}"]`).classList.add('selected', 'border-cyan-500', 'bg-cyan-500/10');
+    
+    // Разблокировать кнопку Далее
+    const nextBtn = document.getElementById('next-category-btn');
+if (nextBtn) nextBtn.disabled = false;
+    const isLabor = ['salary', 'unofficial', 'dismissal'].includes(category);
+    document.getElementById('labor-period').style.display = isLabor ? 'block' : 'none';
+    document.getElementById('labor-details').style.display = isLabor ? 'block' : 'none';
+}
         
         function setMode(mode) {
             if (mode === 'collective' && !currentUser?.proStatus) {
@@ -1106,184 +1070,310 @@ if (authToken) {
         }
         
         function removeWorker(id) {
-            const idx = claimData.workers.findIndex(w => w.id === id);
-            if (idx > -1) {
-                claimData.workers.splice(idx, 1);
-                document.getElementById(`worker-${id}`).remove();
-            }
-        }
-        
+    if (claimData.workers.length <= 1) {
+        showToast('Должен быть хотя бы один заявитель', 'warning');
+        return;
+    }
+    const idx = claimData.workers.findIndex(w => w.id === id);
+    if (idx > -1) {
+        claimData.workers.splice(idx, 1);
+        document.getElementById(`worker-${id}`).remove();
+    }
+}        
         function toggleStillWorking() {
             const checked = document.getElementById('still-working').checked;
             document.getElementById('work-end').disabled = checked;
             if (checked) document.getElementById('work-end').value = '';
         }
         
-        function calculateCompensation() {
-            const amount = parseFloat(document.getElementById('debt-amount').value) || 0;
-            const days = parseInt(document.getElementById('delay-days').value) || 0;
-            const rate = 21.0; // Current key rate
-            
-            const compensation = amount * (rate / 100) / 150 * days;
-            
-            const resultBlock = document.getElementById('compensation-result');
-            if (amount > 0 && days > 0) {
-                resultBlock.classList.remove('hidden');
-                document.getElementById('compensation-amount').textContent = Math.round(compensation).toLocaleString('ru-RU') + ' ₽';
-                document.getElementById('compensation-formula').textContent = 
-                    `Расчет: ${amount.toLocaleString('ru-RU')} × ${rate}% ÷ 150 × ${days} дн.`;
-            } else {
-                resultBlock.classList.add('hidden');
-            }
-        }
-        
+       function calculateCompensation() {
+    const amount = parseFloat(document.getElementById('debt-amount').value) || 0;
+    const days = parseInt(document.getElementById('delay-days').value) || 0;
+    const CENTRAL_BANK_RATE = 16.0; // можно менять здесь
+    const rate = CENTRAL_BANK_RATE;
+
+    const compensation = amount * (rate / 100) / 150 * days;
+
+    const resultBlock = document.getElementById('compensation-result');
+    if (amount > 0 && days > 0) {
+        resultBlock.classList.remove('hidden');
+        document.getElementById('compensation-amount').textContent = Math.round(compensation).toLocaleString('ru-RU') + ' ₽';
+        document.getElementById('compensation-formula').textContent = 
+            `Расчет: ${amount.toLocaleString('ru-RU')} × ${rate}% ÷ 150 × ${days} дн.`;
+    } else {
+        resultBlock.classList.add('hidden');
+    }
+}
         // ==========================================
-        // DATA COLLECTION
+       // DATA COLLECTION
         // ==========================================
         
         function saveRespondentAndNext() {
-            claimData.employer = {
-                name: document.getElementById('resp-name').value,
-                address: document.getElementById('resp-address').value,
-                position: document.getElementById('resp-position').value,
-                ceo: document.getElementById('resp-ceo').value,
-                inn: document.getElementById('resp-inn').value,
-                ogrn: document.getElementById('resp-ogrn').value
-            };
-            nextStep();
+
+    const name = document.getElementById('resp-name').value.trim();
+    const address = document.getElementById('resp-address').value.trim();
+
+    if (!name) {
+        showToast('Введите наименование ответчика', 'warning');
+        return;
+    }
+
+    if (!address) {
+        showToast('Введите адрес ответчика', 'warning');
+        return;
+    }
+
+    claimData.employer = {
+        name: name,
+        address: address,
+        inn: document.getElementById('resp-inn').value,
+        ogrn: document.getElementById('resp-ogrn').value
+    };
+
+    nextStep();
+}
+function saveWorkersAndNext() {
+    for (let w of claimData.workers) {
+        const name = document.getElementById(`w-name-${w.id}`).value.trim();
+        const address = document.getElementById(`w-address-${w.id}`).value.trim();
+        const amount = document.getElementById(`w-amount-${w.id}`).value.trim();
+        const phone = document.getElementById(`w-phone-${w.id}`).value.trim();
+        const email = document.getElementById(`w-email-${w.id}`).value.trim();
+
+        if (!validateFullName(name)) {
+            showToast(`Заявитель ${w.id+1}: введите полное ФИО (минимум два слова)`, 'warning');
+            return;
         }
-        
-        function saveWorkersAndNext() {
-            claimData.workers = claimData.workers.map(w => ({
-                id: w.id,
-                name: document.getElementById(`w-name-${w.id}`).value,
-                address: document.getElementById(`w-address-${w.id}`).value,
-                birthDate: document.getElementById(`w-birth-${w.id}`).value,
-                phone: document.getElementById(`w-phone-${w.id}`).value,
-                position: document.getElementById(`w-position-${w.id}`).value,
-                email: document.getElementById(`w-email-${w.id}`).value,
-                amount: document.getElementById(`w-amount-${w.id}`).value
-            }));
-            nextStep();
+        if (!address) {
+            showToast(`Заявитель ${w.id+1}: введите адрес`, 'warning');
+            return;
         }
-        
-        function saveCircumstancesAndNext() {
-            claimData.circumstances = {
-                workStart: document.getElementById('work-start').value,
-                workEnd: document.getElementById('still-working').checked ? 'настоящее время' : document.getElementById('work-end').value,
-                supervisor: document.getElementById('supervisor').value,
-                workplace: document.getElementById('workplace').value,
-                paymentForm: document.getElementById('payment-form').value,
-                debtAmount: document.getElementById('debt-amount').value,
-                dueDate: document.getElementById('due-date').value,
-                delayDays: document.getElementById('delay-days').value,
-                compensation: document.getElementById('compensation-amount').textContent,
-                partialPayments: document.getElementById('partial-payments').value,
-                socialImpact: document.getElementById('social-impact').value,
-                description: document.getElementById('description').value
-            };
-            nextStep();
+        if (!amount) {
+            showToast(`Заявитель ${w.id+1}: укажите сумму задолженности`, 'warning');
+            return;
         }
-        
-        function saveEvidenceAndNext() {
-            claimData.evidence = Array.from(document.querySelectorAll('.evidence-check:checked')).map(cb => cb.value);
-            
-            if (claimData.evidence.includes('Свидетельские показания')) {
-                document.getElementById('witness-block').classList.remove('hidden');
-                claimData.witness = {
-                    name: document.getElementById('witness-name').value,
-                    birthDate: document.getElementById('witness-birth').value,
-                    text: document.getElementById('witness-text').value
-                };
-            }
-            
-            nextStep();
+        if (phone && !validateRussianPhone(phone)) {
+            showToast(`Заявитель ${w.id+1}: телефон должен быть российского формата (например, +7 999 123-45-67)`, 'warning');
+            return;
         }
-        
-        // ==========================================
-        // GENERATION
+        if (email && !validateEmail(email)) {
+            showToast(`Заявитель ${w.id+1}: введите корректный email`, 'warning');
+            return;
+        }
+    }
+
+    claimData.workers = claimData.workers.map(w => ({
+        id: w.id,
+        name: document.getElementById(`w-name-${w.id}`).value,
+        address: document.getElementById(`w-address-${w.id}`).value,
+        birthDate: document.getElementById(`w-birth-${w.id}`).value,
+        phone: document.getElementById(`w-phone-${w.id}`).value,
+        position: document.getElementById(`w-position-${w.id}`).value,
+        email: document.getElementById(`w-email-${w.id}`).value,
+        amount: document.getElementById(`w-amount-${w.id}`).value
+    }));
+    nextStep();
+}
+
+function saveEvidenceAndNext() {
+    claimData.evidence = Array.from(document.querySelectorAll('.evidence-check:checked')).map(cb => cb.value);
+
+    if (claimData.evidence.length === 0) {
+        showToast('Выберите хотя бы одно доказательство', 'warning');
+        return;
+    }
+
+    if (claimData.evidence.includes('Свидетельские показания')) {
+        const witnessName = document.getElementById('witness-name').value.trim();
+        if (!witnessName) {
+            showToast('Введите ФИО свидетеля', 'warning');
+            return;
+        }
+        claimData.witness = {
+            name: witnessName,
+            birthDate: document.getElementById('witness-birth').value,
+            text: document.getElementById('witness-text').value
+        };
+    }
+
+    nextStep();
+}
+
+function saveCircumstancesAndNext() {
+
+const debtAmount = document.getElementById('debt-amount').value.trim();
+
+if (!debtAmount) {
+showToast('Введите сумму задолженности', 'warning');
+return;
+}
+
+claimData.circumstances = {
+
+workStart: document.getElementById('work-start').value,
+
+workEnd: document.getElementById('still-working').checked
+? 'настоящее время'
+: document.getElementById('work-end').value,
+
+stillWorking: document.getElementById('still-working').checked,
+
+supervisor: document.getElementById('supervisor').value,
+
+workplace: document.getElementById('workplace').value,
+
+paymentForm: document.getElementById('payment-form').value,
+
+debtAmount: debtAmount,
+
+dueDate: document.getElementById('due-date').value,
+
+delayDays: document.getElementById('delay-days').value,
+
+compensation: document.getElementById('compensation-amount').textContent,
+
+partialPayments: document.getElementById('partial-payments').value,
+
+socialImpact: document.getElementById('social-impact').value,
+
+description: document.getElementById('description').value
+
+};
+
+nextStep();
+
+}
+
+    // GENERATION
         // ==========================================
         
             
         // Store format for later generation
-        let generationFormat = null;
         
-        function toggleSubscriptionModal() {
-            const modal = document.getElementById('subscription-modal');
-            modal.classList.toggle('hidden');
+ async function generateDocument(format) {
+
+const pdfBtn = document.querySelector('button[onclick="generateDocument(\'pdf\')"]')
+const docxBtn = document.getElementById('docx-btn')
+let originalPdfText = pdfBtn ? pdfBtn.innerHTML : ''
+
+    if (!authToken) {
+        showToast('Сначала войдите через Telegram', 'warning');
+        return;
+    }
+    if (!document.getElementById('confirm-data').checked) {
+        showToast('Подтвердите достоверность данных', 'warning');
+        return;
+    }
+
+    // Защита от двойного клика
+    if (isGenerating) return;
+    isGenerating = true;
+
+    // Проверка формата DOCX для не-PRO
+    if (format === 'docx' && !currentUser?.proStatus) {
+        showToast('Формат DOCX доступен только в PRO', 'warning');
+        isGenerating = false;
+        return;
+    }
+
+    // Проверка лимита (дублируем для UX)
+    const isPro = currentUser?.proStatus === true;
+    const usedCount = currentUser?.generationCount || 0;
+    if (!isPro && usedCount >= 2) {
+
+showToast('Вы использовали 2 из 2 бесплатных генераций. Получите PRO для безлимитного доступа.', 'warning');
+
+setTimeout(() => showSection('pricing'), 3000);
+
+isGenerating = false;
+
+if (pdfBtn) {
+pdfBtn.innerHTML = originalPdfText
+pdfBtn.disabled = false
+}
+
+if (docxBtn && !docxBtn.classList.contains('hidden')) {
+docxBtn.disabled = false
+}
+
+return
+}
+
+    // --- Блокировка кнопок и отображение загрузки ---
+    if (pdfBtn) {
+        pdfBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin mr-2"></i>Генерация...';
+        pdfBtn.disabled = true;
+    }
+    if (docxBtn && !docxBtn.classList.contains('hidden')) {
+        docxBtn.disabled = true;
+    }
+
+    try {
+        const response = await fetch(`${API_BASE}/api/generate`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authToken}`
+            },
+            body: JSON.stringify({ claimData, format })
+        });
+
+        if (response.status === 401 || response.status === 403) {
+            const data = await response.json();
+            showToast(data.error || 'Доступ запрещён', 'warning');
+isGenerating = false;
+
+if (pdfBtn) {
+pdfBtn.innerHTML = originalPdfText;
+pdfBtn.disabled = false;
+}
+
+if (docxBtn && !docxBtn.classList.contains('hidden')) {
+docxBtn.disabled = false;
+}
+            return;
         }
-        
-        async function generateDocument(format) {
-            if (!document.getElementById('confirm-data').checked) {
-                showToast('Подтвердите достоверность данных', 'warning');
-                return;
-            }
-            // Store format and show subscription modal. Allow this for unauthenticated users —
-            // subscription in Telegram is used to grant free access.
-            generationFormat = format;
-            toggleSubscriptionModal();
+
+        if (!response.ok) throw new Error('Generation failed');
+
+        // Скачиваем файл
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `pretension_${Date.now()}.${format}`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+
+        showToast('Документ успешно создан!', 'success');
+
+        // Обновляем данные пользователя (чтобы увидеть новый generationCount)
+        const userRes = await fetch(`${API_BASE}/api/auth/validate`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        const userData = await userRes.json();
+        if (userData.user) {
+            currentUser = userData.user;
+            updateUIForUser();
         }
-        
-        async function proceedWithGeneration() {
-            const format = generationFormat;
-            if (!format) return;
-            // Check limits before generation
-            const isPro = currentUser?.proStatus === true;
-            const usedCount = currentUser?.generationCount || 0;
-            if (!isPro && usedCount >= 2) {
-                showToast('Вы использовали 2 из 2 бесплатных генераций. Получите PRO для безлимитного доступа.', 'warning');
-                setTimeout(() => showSection('pricing'), 3000);
-                return;
-            }
-            
-            try {
-                const response = await fetch(`${API_BASE}/api/generate`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        // Include auth header only if available
-                        ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {})
-                    },
-                    body: JSON.stringify({ claimData, format })
-                });
-                
-                if (response.status === 401 || response.status === 403) {
-                    const data = await response.json();
-                    // Do not auto-close the subscription modal — inform the user
-                    showToast(data.message || 'Требуется доступ', 'warning');
-                    if (data.redirectToPricing) setTimeout(() => showSection('pricing'), 3000);
-                    return;
-                }
-                
-                if (!response.ok) throw new Error('Generation failed');
-                
-                // Update local count
-                if (!isPro && currentUser) {
-                    currentUser.generationCount = (currentUser.generationCount || 0) + 1;
-                    updateUIForUser();
-                }
-                
-                // Download file
-                const blob = await response.blob();
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `pretension_${Date.now()}.${format}`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                window.URL.revokeObjectURL(url);
-                
-                showToast('Документ успешно создан!', 'success');
-                // Keep subscription modal open (user requested it to remain).
-                // Do not clear claimData — user can generate again or close manually.
-                
-            } catch (error) {
-                console.error('Generation error:', error);
-                showToast('Ошибка генерации документа', 'error');
-            }
+
+    } catch (error) {
+        console.error('Generation error:', error);
+        showToast('Ошибка генерации документа', 'error');
+    } finally {
+        // Разблокировка кнопок
+        isGenerating = false;
+        if (pdfBtn) {
+            pdfBtn.innerHTML = originalPdfText;
+            pdfBtn.disabled = false;
         }
-        
+        if (docxBtn && !docxBtn.classList.contains('hidden')) {
+            docxBtn.disabled = false;
+        }
+    }
+}      
         function showPreview() {
             // Build preview text locally
             const text = buildPreviewText();
@@ -1293,39 +1383,79 @@ if (authToken) {
         }
         
         function buildPreviewText() {
-            // Simplified preview generation
-            return `ДОСУДЕБНАЯ ПРЕТЕНЗИЯ
+    const employerName = claimData.employer?.name || '___________';
+    const workersNames = (claimData.workers || []).map(w => w.name).filter(Boolean).join(', ') || '___________';
+    const debt = claimData.circumstances?.debtAmount || '___________';
+    return `ДОСУДЕБНАЯ ПРЕТЕНЗИЯ
 ${claimData.mode === 'collective' ? '(коллективная)' : ''}
 
 1. РЕКВИЗИТЫ ОТВЕТЧИКА
-${claimData.employer.name}
-Адрес: ${claimData.employer.address}
+${employerName}
+Адрес: ${claimData.employer?.address || '___________'}
 
 2. РЕКВИЗИТЫ ЗАЯВИТЕЛЯ${claimData.mode === 'collective' ? 'ЕЙ' : ''}
-${claimData.workers.map(w => w.name).join('\n')}
+${workersNames}
 
+3. СУЩЕСТВО ТРЕБОВАНИЙ
+Задолженность составляет ${debt} руб.
 ... (полный текст будет в скачанном документе)`;
-        }
-        
+}
+// Обработка чекбоксов в шаге 6 – появление блока свидетеля
+function setupEvidenceCheckboxes() {
+    if (evidenceInitialized) return;
+    evidenceInitialized = true;
+
+    const checkboxes = document.querySelectorAll('.evidence-check');
+    checkboxes.forEach(cb => {
+        cb.addEventListener('change', function() {
+            const witnessChecked = Array.from(checkboxes).some(c => c.checked && c.value === 'Свидетельские показания');
+            const witnessBlock = document.getElementById('witness-block');
+            if (witnessChecked) {
+                witnessBlock.classList.remove('hidden');
+            } else {
+                witnessBlock.classList.add('hidden');
+                document.getElementById('witness-name').value = '';
+                document.getElementById('witness-birth').value = '';
+                document.getElementById('witness-text').value = '';
+            }
+        });
+    });
+}
+
+// Вызвать эту функцию при заходе на шаг 6 (добавим в showStep6)
+function showStep6() {
+    setupEvidenceCheckboxes();
+    // Если уже выбрано свидетельское показание при повторном входе – показать блок
+    const witnessChecked = Array.from(document.querySelectorAll('.evidence-check:checked')).some(cb => cb.value === 'Свидетельские показания');
+    if (witnessChecked) {
+        document.getElementById('witness-block').classList.remove('hidden');
+    }
+}
         // ==========================================
         // UTILITIES
         // ==========================================
         
-        function nextStep() {
-            if (currentStep < 7) {
-                document.getElementById(`step-${currentStep}`).classList.add('section-hidden');
-                currentStep++;
-                document.getElementById(`step-${currentStep}`).classList.remove('section-hidden');
-                updateProgress();
-            }
-        }
-        
+       function nextStep() {
+    // Проверка: на шаге 1 категория должна быть выбрана
+    if (currentStep === 1 && !claimData.type) {
+        showToast('Выберите категорию спора', 'warning');
+        return;
+    }
+    if (currentStep < 7) {
+        document.getElementById(`step-${currentStep}`).classList.add('section-hidden');
+        currentStep++;
+        document.getElementById(`step-${currentStep}`).classList.remove('section-hidden');
+        updateProgress();
+        if (currentStep === 6) showStep6();
+    }
+}        
         function prevStep() {
             if (currentStep > 1) {
                 document.getElementById(`step-${currentStep}`).classList.add('section-hidden');
                 currentStep--;
                 document.getElementById(`step-${currentStep}`).classList.remove('section-hidden');
                 updateProgress();
+               if (currentStep === 6) showStep6(); 
             }
         }
         
@@ -1349,7 +1479,7 @@ ${claimData.workers.map(w => w.name).join('\n')}
             });
         }
         
-        function resetAllData() {
+                       function resetAllData() {
             claimData = {
                 type: '',
                 mode: 'individual',
@@ -1359,65 +1489,43 @@ ${claimData.workers.map(w => w.name).join('\n')}
                 evidence: [],
                 witness: null
             };
+
+            // Сброс выделения категорий
+            document.querySelectorAll('.category-card').forEach(card => {
+                card.classList.remove('selected', 'border-cyan-500', 'bg-cyan-500/10');
+            });
+
             currentStep = 1;
-            
+
             document.querySelectorAll('input, textarea').forEach(el => {
                 if (el.type === 'checkbox') el.checked = false;
                 else el.value = '';
             });
-            
+
             document.getElementById('workers-container').innerHTML = '';
             document.getElementById('preview-container').classList.add('hidden');
-            
+
+            // Добавляем первого заявителя
             addWorker();
+
             setMode('individual');
-            
+
             document.querySelectorAll('.step-content').forEach((el, idx) => {
                 if (idx === 0) el.classList.remove('section-hidden');
                 else el.classList.add('section-hidden');
             });
-            
+
             updateProgress();
+
+            const nextBtn = document.getElementById('next-category-btn')
+            if (nextBtn) nextBtn.disabled = true
+
             showToast('Данные очищены');
         }
-        
-        // ==========================================
-        // FREE ACCESS MANAGEMENT
-        // ==========================================
-        
-        function toggleFreeModal() {
-            const modal = document.getElementById('free-modal');
-            modal.classList.toggle('hidden');
-        }
-        
-        function getFreeAccess() {
-            if (!currentUser) {
-                showToast('Сначала нужна регистрация через Telegram', 'warning');
-                initTelegramAuth();
-                return;
-            }
-            
-            // Show free access modal with subscription instructions
-            toggleFreeModal();
-        }
-        
-        function activateFreeAccess() {
-            if (!currentUser) {
-                showToast('Не авторизованы', 'error');
-                return;
-            }
-            
-            // Mark user as having free access and set to generator
-            currentUser.freeAccessActive = true;
-            toggleFreeModal();
-            showToast('Доступ активирован! Наять с генератора', 'success');
-            showSection('generator');
-        }
-        
+
         // ==========================================
         // PRO MANAGEMENT
-        // ==========================================
-        
+        // ==========================================      
         function toggleProModal() {
             const modal = document.getElementById('pro-modal');
             modal.classList.toggle('hidden');
@@ -1440,10 +1548,21 @@ ${claimData.workers.map(w => w.name).join('\n')}
             setTimeout(() => toast.classList.add('show'), 100);
             setTimeout(() => { toast.classList.remove('show'); setTimeout(() => toast.remove(), 300); }, duration);
         }
+        function handleFreeClick() {
+            showToast('Бесплатный доступ активирован!', 'success');
+            startGenerator();
+        }
+
         
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
             addWorker();
+
+        // Если токен уже есть – скрыть виджет сразу
+        if (authToken) {
+           const widget = document.getElementById('telegram-login-widget');
+           if (widget) widget.style.display = 'none';
+        }    
             
             // Check for existing auth
             const savedToken = localStorage.getItem('legalpro_token');
@@ -1465,6 +1584,125 @@ ${claimData.workers.map(w => w.name).join('\n')}
                 });
             }
         });
+
+        // ==========================================
+        // ПОДСКАЗКИ ПО ИНН (DaData)
+        // ==========================================
+      async function searchCompanyByName() {
+
+const query = document.getElementById("resp-name").value.trim();
+
+if (query.length < 3) {
+document.getElementById("company-suggestions").classList.add("hidden");
+return;
+}
+
+try {
+
+const response = await fetch(`${API_BASE}/api/companySearch`, {
+method: "POST",
+headers: {
+"Content-Type": "application/json"
+},
+body: JSON.stringify({ query })
+});
+
+const data = await response.json();
+
+const container = document.getElementById("company-suggestions");
+
+container.innerHTML = "";
+
+if (!data.suggestions || data.suggestions.length === 0) {
+container.classList.add("hidden");
+return;
+}
+
+data.suggestions.slice(0, 5).forEach(item => {
+
+const div = document.createElement("div");
+
+div.className = "p-3 hover:bg-white/10 cursor-pointer border-b border-white/5";
+
+div.innerHTML = `
+<div class="text-white">${item.value}</div>
+<div class="text-xs text-gray-400">${item.data.address?.value || ""}</div>
+`;
+
+div.onclick = () => selectCompany(item);
+
+container.appendChild(div);
+
+});
+
+container.classList.remove("hidden");
+
+} catch (error) {
+
+console.error("Ошибка поиска компании:", error);
+showToast('Ошибка поиска компании', 'error')
+
+}
+
+}
+
+
+function selectCompany(item) {
+
+document.getElementById("resp-name").value =
+item.data.name.full_with_opf || "";
+
+document.getElementById("resp-address").value =
+item.data.address?.value || "";
+
+document.getElementById("resp-inn").value =
+item.data.inn || "";
+
+document.getElementById("resp-ogrn").value =
+item.data.ogrn || "";
+
+document.getElementById("company-suggestions").classList.add("hidden");
+
+}
+
+async function fetchCompanyByInn() {
+
+const inn = document.getElementById("resp-inn").value.trim()
+
+if (inn.length < 10) {
+document.getElementById("company-suggestions").classList.add("hidden")
+return
+}
+
+try {
+
+const response = await fetch(`${API_BASE}/api/companyByInn`, {
+method: "POST",
+headers: {
+"Content-Type": "application/json"
+},
+body: JSON.stringify({ inn })
+})
+
+const data = await response.json()
+
+if (data.suggestions && data.suggestions.length > 0) {
+
+const item = data.suggestions[0]
+
+selectCompany(item)
+
+}
+
+} catch (error) {
+
+console.error("Ошибка поиска по ИНН:", error)
+showToast('Ошибка поиска компании', 'error')
+
+}
+
+}
+
     </script>
 </body>
-</html>
+</html>                  
